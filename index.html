@@ -1,468 +1,116 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>問題・解答共有システム</title>
-
-    <link rel="stylesheet" href="style.css">
-
-    <!-- Supabase -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>解答共有システム</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-
 <body>
+  <header class="topbar">
+    <div class="site-title">解答共有システム</div>
+    <button id="admin-button" class="admin-button">管理者モード</button>
+  </header>
 
-<header>
-    <div class="site-title">問題・解答共有システム</div>
-
-    <button id="admin-button" class="admin-button">
-        管理者モード
-    </button>
-</header>
-
-
-<main>
-
-    <!-- =========================
-         一般ユーザー画面
-    ========================== -->
-
-    <section id="user-area">
-
-        <!-- 招待コード -->
-        <div id="invite-screen" class="screen">
-
-            <h1>問題・解答共有システム</h1>
-
-            <p>
-                招待コードを入力してください。
-            </p>
-
-            <input
-                id="invite-code"
-                type="text"
-                placeholder="招待コード"
-            >
-
-            <button id="invite-button">
-                入室
-            </button>
-
-            <p id="invite-error" class="error"></p>
-
-        </div>
-
-
-        <!-- 科目選択 -->
-        <div id="subject-screen" class="screen hidden">
-
-            <h1>科目を選択</h1>
-
-            <div id="subject-list" class="card-list"></div>
-
-        </div>
-
-
-        <!-- 大問選択 -->
-        <div id="problem-screen" class="screen hidden">
-
-            <button id="back-to-subjects" class="back-button">
-                ← 科目選択に戻る
-            </button>
-
-            <h1 id="problem-title">
-                大問を選択
-            </h1>
-
-            <div id="problem-list" class="card-list"></div>
-
-        </div>
-
-
-        <!-- 小問選択 -->
-        <div id="question-screen" class="screen hidden">
-
-            <button id="back-to-problems" class="back-button">
-                ← 大問選択に戻る
-            </button>
-
-            <h1 id="question-title">
-                小問を選択
-            </h1>
-
-            <div id="question-list" class="card-list"></div>
-
-        </div>
-
-
-        <!-- 解答 -->
-        <div id="answer-screen" class="screen hidden">
-
-            <button id="back-to-questions" class="back-button">
-                ← 小問選択に戻る
-            </button>
-
-            <div class="breadcrumb" id="breadcrumb"></div>
-
-            <h1 id="answer-question-name"></h1>
-
-
-            <section class="answer-section">
-
-                <h2>問題</h2>
-
-                <div
-                    id="answer-problem"
-                    class="content-box"
-                ></div>
-
-            </section>
-
-
-            <section class="answer-section">
-
-                <h2>答え</h2>
-
-                <div
-                    id="answer-answer"
-                    class="content-box answer-box"
-                ></div>
-
-            </section>
-
-
-            <section class="answer-section">
-
-                <h2>解説</h2>
-
-                <div
-                    id="answer-explanation"
-                    class="content-box"
-                ></div>
-
-            </section>
-
-
-            <section
-                id="answer-image-section"
-                class="answer-section hidden"
-            >
-
-                <h2>画像</h2>
-
-                <div class="image-container">
-                    <img
-                        id="answer-image"
-                        alt="問題画像"
-                    >
-                </div>
-
-            </section>
-
-        </div>
-
+  <main>
+    <!-- 入室 -->
+    <section id="entry-screen" class="screen active">
+      <div class="card narrow">
+        <h1>解答共有システム</h1>
+        <p>招待コードを入力してください。</p>
+        <input id="invite-code" type="password" placeholder="招待コード">
+        <button id="enter-button" class="primary-button">入室</button>
+        <p id="entry-error" class="error"></p>
+      </div>
     </section>
 
+    <!-- 科目 -->
+    <section id="subject-screen" class="screen">
+      <div class="page-head">
+        <h1>科目を選択</h1>
+      </div>
+      <div id="subject-list" class="button-list"></div>
+    </section>
 
+    <!-- 大問 -->
+    <section id="problem-screen" class="screen">
+      <div class="page-head">
+        <button id="problem-back" class="back-button">← 科目一覧</button>
+        <h1 id="problem-title">大問を選択</h1>
+      </div>
+      <div id="problem-list" class="button-list"></div>
+    </section>
 
-    <!-- =========================
-         管理者ログイン
-    ========================== -->
+    <!-- 小問 -->
+    <section id="question-screen" class="screen">
+      <div class="page-head">
+        <button id="question-back" class="back-button">← 大問一覧</button>
+        <h1 id="question-title">小問を選択</h1>
+      </div>
+      <div id="question-list" class="button-list"></div>
+      <button id="request-button" class="request-button">ご要望・訂正報告</button>
+    </section>
 
-    <section id="admin-login-screen" class="screen admin-screen hidden">
+    <!-- 解答 -->
+    <section id="answer-screen" class="screen">
+      <div class="card">
+        <div id="answer-breadcrumb" class="breadcrumb"></div>
+        <h1 id="answer-question-name"></h1>
+        <div class="answer-label">解答</div>
+        <div id="answer-text" class="answer-box"></div>
+        <button id="answer-back" class="secondary-button">← 小問一覧に戻る</button>
+      </div>
+    </section>
 
+    <!-- ご要望 -->
+    <section id="request-screen" class="screen">
+      <div class="card">
+        <div class="breadcrumb" id="request-breadcrumb"></div>
+        <h1>ご要望・訂正報告</h1>
+        <p class="muted">解答の間違い、誤字、追加してほしい問題などを管理者に送れます。</p>
+        <textarea id="request-message" rows="8" maxlength="1000" placeholder="例：この問題の解答が間違っていると思います。正しくは……"></textarea>
+        <div class="form-actions">
+          <button id="request-cancel" class="secondary-button">戻る</button>
+          <button id="request-submit" class="primary-button">送信</button>
+        </div>
+        <p id="request-result" class="result-message"></p>
+      </div>
+    </section>
+
+    <!-- 管理者ログイン -->
+    <section id="admin-login-screen" class="screen">
+      <div class="card narrow">
         <h1>管理者ログイン</h1>
-
-        <div class="form-group">
-
-            <label for="admin-email">
-                メールアドレス
-            </label>
-
-            <input
-                id="admin-email"
-                type="email"
-                placeholder="メールアドレス"
-            >
-
-        </div>
-
-
-        <div class="form-group">
-
-            <label for="admin-password">
-                パスワード
-            </label>
-
-            <input
-                id="admin-password"
-                type="password"
-                placeholder="パスワード"
-            >
-
-        </div>
-
-
-        <button id="admin-login-button">
-            ログイン
-        </button>
-
-        <button id="admin-login-back" class="secondary-button">
-            戻る
-        </button>
-
+        <input id="admin-email" type="email" placeholder="メールアドレス">
+        <input id="admin-password" type="password" placeholder="パスワード">
+        <button id="admin-login-button" class="primary-button">ログイン</button>
+        <button id="admin-login-back" class="secondary-button">戻る</button>
         <p id="admin-login-error" class="error"></p>
-
+      </div>
     </section>
 
-
-
-    <!-- =========================
-         管理者画面
-    ========================== -->
-
-    <section id="admin-area" class="screen admin-screen hidden">
-
-        <div class="admin-header">
-
-            <div>
-                <h1>管理者モード</h1>
-                <p id="admin-email-display"></p>
-            </div>
-
-            <button id="logout-button" class="logout-button">
-                ログアウト
-            </button>
-
-        </div>
-
-
-        <!-- 科目管理 -->
-        <div id="admin-subject-screen">
-
-            <div class="admin-section-header">
-
-                <h2>科目管理</h2>
-
-                <button id="add-subject-button">
-                    ＋ 科目を追加
-                </button>
-
-            </div>
-
-            <div
-                id="admin-subject-list"
-                class="admin-list"
-            ></div>
-
-        </div>
-
-
-        <!-- 大問管理 -->
-        <div
-            id="admin-problem-screen"
-            class="hidden"
-        >
-
-            <button
-                id="admin-back-subjects"
-                class="back-button"
-            >
-                ← 科目管理に戻る
-            </button>
-
-            <div class="admin-section-header">
-
-                <h2 id="admin-problem-title">
-                    大問管理
-                </h2>
-
-                <button id="add-problem-button">
-                    ＋ 大問を追加
-                </button>
-
-            </div>
-
-            <div
-                id="admin-problem-list"
-                class="admin-list"
-            ></div>
-
-        </div>
-
-
-        <!-- 小問管理 -->
-        <div
-            id="admin-question-screen"
-            class="hidden"
-        >
-
-            <button
-                id="admin-back-problems"
-                class="back-button"
-            >
-                ← 大問管理に戻る
-            </button>
-
-            <div class="admin-section-header">
-
-                <h2 id="admin-question-title">
-                    小問管理
-                </h2>
-
-                <button id="add-question-button">
-                    ＋ 小問を追加
-                </button>
-
-            </div>
-
-            <div
-                id="admin-question-list"
-                class="admin-list"
-            ></div>
-
-        </div>
-
-
-        <!-- 小問編集 -->
-        <div
-            id="admin-question-editor"
-            class="editor hidden"
-        >
-
-            <button
-                id="admin-editor-back"
-                class="back-button"
-            >
-                ← 小問一覧に戻る
-            </button>
-
-            <h2 id="editor-title">
-                小問を編集
-            </h2>
-
-
-            <div class="form-group">
-
-                <label for="edit-question-name">
-                    小問名
-                </label>
-
-                <input
-                    id="edit-question-name"
-                    type="text"
-                    placeholder="例：(1)"
-                >
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label for="edit-question-problem">
-                    問題
-                </label>
-
-                <textarea
-                    id="edit-question-problem"
-                    rows="6"
-                    placeholder="問題文を入力してください"
-                ></textarea>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label for="edit-question-answer">
-                    答え
-                </label>
-
-                <textarea
-                    id="edit-question-answer"
-                    rows="4"
-                    placeholder="答えを入力してください"
-                ></textarea>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label for="edit-question-explanation">
-                    解説
-                </label>
-
-                <textarea
-                    id="edit-question-explanation"
-                    rows="8"
-                    placeholder="解説を入力してください"
-                ></textarea>
-
-            </div>
-
-
-            <!-- 画像 -->
-            <div class="form-group">
-
-                <label>
-                    問題画像
-                </label>
-
-                <input
-                    id="edit-question-image-file"
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                >
-
-                <div
-                    id="current-image-area"
-                    class="current-image-area"
-                ></div>
-
-                <button
-                    id="remove-image-button"
-                    type="button"
-                    class="danger-button hidden"
-                >
-                    画像を削除
-                </button>
-
-            </div>
-
-
-            <div class="editor-buttons">
-
-                <button
-                    id="save-question-button"
-                >
-                    保存
-                </button>
-
-                <button
-                    id="cancel-question-button"
-                    class="secondary-button"
-                >
-                    キャンセル
-                </button>
-
-            </div>
-
-            <p
-                id="question-save-message"
-                class="message"
-            ></p>
-
-        </div>
-
+    <!-- 管理者トップ -->
+    <section id="admin-screen" class="screen">
+      <div class="page-head admin-head">
+        <h1>管理者モード</h1>
+        <button id="admin-logout-button" class="secondary-button small">ログアウト</button>
+      </div>
+
+      <div class="admin-menu">
+        <button id="admin-subject-menu">科目管理</button>
+        <button id="admin-problem-menu">大問管理</button>
+        <button id="admin-question-menu">小問管理</button>
+        <button id="admin-request-menu">ご要望・訂正報告</button>
+      </div>
+
+      <div id="admin-content" class="card">
+        <h2>管理者メニュー</h2>
+        <p>上のメニューから管理する項目を選択してください。</p>
+      </div>
     </section>
+  </main>
 
-</main>
-
-
-<script src="app.js"></script>
-
+  <script src="app.js"></script>
 </body>
 </html>

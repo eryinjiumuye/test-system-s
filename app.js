@@ -11,6 +11,13 @@ let supabaseClient = null;
 
 
 // ============================================================
+// 招待コード
+// ============================================================
+
+const INVITE_CODE = "1234";
+
+
+// ============================================================
 // 状態
 // ============================================================
 
@@ -22,25 +29,6 @@ let adminSubject = null;
 let adminProblem = null;
 let editingQuestion = null;
 
-let removeCurrentImage = false;
-
-
-// ============================================================
-// DOM
-// ============================================================
-
-let inviteScreen;
-let subjectScreen;
-let problemScreen;
-let questionScreen;
-let answerScreen;
-
-let adminLoginScreen;
-let adminArea;
-let adminProblemScreen;
-let adminQuestionScreen;
-let adminQuestionEditor;
-
 
 // ============================================================
 // 初期化
@@ -50,53 +38,167 @@ document.addEventListener("DOMContentLoaded", () => {
 
     console.log("app.js 読み込み開始");
 
-    // DOMを取得
-    getElements();
-
-    // 先にボタンを有効化
     setupEvents();
 
-    // Supabaseを初期化
     initializeSupabase();
 
 });
 
 
 // ============================================================
-// DOM取得
+// イベント設定
 // ============================================================
 
-function getElements() {
+function setupEvents() {
 
-    inviteScreen =
-        document.getElementById("invite-screen");
+    console.log("イベント設定開始");
 
-    subjectScreen =
-        document.getElementById("subject-screen");
 
-    problemScreen =
-        document.getElementById("problem-screen");
+    // 入室
+    document
+        .getElementById("enter-button")
+        .addEventListener("click", enterSystem);
 
-    questionScreen =
-        document.getElementById("question-screen");
 
-    answerScreen =
-        document.getElementById("answer-screen");
+    // 管理者モード
+    document
+        .getElementById("admin-button")
+        .addEventListener("click", openAdminLogin);
 
-    adminLoginScreen =
-        document.getElementById("admin-login-screen");
 
-    adminArea =
-        document.getElementById("admin-area");
+    // 戻る
+    document
+        .getElementById("problem-back")
+        .addEventListener("click", () => {
 
-    adminProblemScreen =
-        document.getElementById("admin-problem-screen");
+            showSubjects();
 
-    adminQuestionScreen =
-        document.getElementById("admin-question-screen");
+        });
 
-    adminQuestionEditor =
-        document.getElementById("admin-question-editor");
+
+    document
+        .getElementById("question-back")
+        .addEventListener("click", () => {
+
+            showProblems(currentSubject);
+
+        });
+
+
+    document
+        .getElementById("answer-back")
+        .addEventListener("click", () => {
+
+            showQuestions(currentProblem);
+
+        });
+
+
+    // ご要望
+    document
+        .getElementById("request-button")
+        .addEventListener("click", openRequestScreen);
+
+
+    document
+        .getElementById("request-cancel")
+        .addEventListener("click", () => {
+
+            showQuestions(currentProblem);
+
+        });
+
+
+    document
+        .getElementById("request-submit")
+        .addEventListener("click", submitRequest);
+
+
+    // 管理者ログイン
+    document
+        .getElementById("admin-login-button")
+        .addEventListener("click", adminLogin);
+
+
+    document
+        .getElementById("admin-login-back")
+        .addEventListener("click", () => {
+
+            showScreen("entry-screen");
+
+        });
+
+
+    document
+        .getElementById("admin-logout-button")
+        .addEventListener("click", adminLogout);
+
+
+    // 管理者メニュー
+    document
+        .getElementById("admin-subject-menu")
+        .addEventListener("click", () => {
+
+            renderAdminSubjects();
+
+        });
+
+
+    document
+        .getElementById("admin-problem-menu")
+        .addEventListener("click", () => {
+
+            renderAdminProblems();
+
+        });
+
+
+    document
+        .getElementById("admin-question-menu")
+        .addEventListener("click", () => {
+
+            renderAdminQuestions();
+
+        });
+
+
+    document
+        .getElementById("admin-request-menu")
+        .addEventListener("click", () => {
+
+            renderAdminRequests();
+
+        });
+
+
+    // Enterキー
+    document
+        .getElementById("invite-code")
+        .addEventListener("keydown", event => {
+
+            if (event.key === "Enter") {
+
+                enterSystem();
+
+            }
+
+        });
+
+
+    document
+        .getElementById("admin-password")
+        .addEventListener("keydown", event => {
+
+            if (event.key === "Enter") {
+
+                adminLogin();
+
+            }
+
+        });
+
+
+    console.log("イベント設定完了");
 
 }
 
@@ -110,25 +212,38 @@ function initializeSupabase() {
     try {
 
         if (
+            typeof SUPABASE_URL === "undefined" ||
+            typeof SUPABASE_ANON_KEY === "undefined"
+        ) {
+
+            throw new Error(
+                "Supabaseの設定が見つかりません。"
+            );
+
+        }
+
+
+        if (
             SUPABASE_URL.includes("ここに") ||
             SUPABASE_ANON_KEY.includes("ここに")
         ) {
 
-            console.error(
-                "SupabaseのURLまたはKeyが設定されていません。"
+            throw new Error(
+                "app.jsのSupabase設定を入力してください。"
             );
 
-            return;
         }
 
 
-        if (!window.supabase) {
+        if (
+            !window.supabase ||
+            !window.supabase.createClient
+        ) {
 
-            console.error(
-                "Supabaseのライブラリが読み込まれていません。"
+            throw new Error(
+                "Supabaseライブラリを読み込めませんでした。"
             );
 
-            return;
         }
 
 
@@ -141,12 +256,9 @@ function initializeSupabase() {
 
         console.log("Supabase初期化成功");
 
+    }
 
-        // 既にログインしている管理者がいるか確認
-        checkAdminSession();
-
-
-    } catch (error) {
+    catch (error) {
 
         console.error(
             "Supabase初期化エラー:",
@@ -159,321 +271,51 @@ function initializeSupabase() {
 
 
 // ============================================================
-// イベント
+// 画面切り替え
 // ============================================================
 
-function setupEvents() {
+function showScreen(screenId) {
 
-    console.log("イベント設定開始");
+    document
+        .querySelectorAll(".screen")
+        .forEach(screen => {
+
+            screen.classList.remove("active");
+
+        });
 
 
-    // ----------------------------------------
-    // 招待コード
-    // ----------------------------------------
+    const target =
+        document.getElementById(screenId);
 
-    const inviteButton =
-        document.getElementById("invite-button");
 
-    if (inviteButton) {
+    if (target) {
 
-        inviteButton.addEventListener(
-            "click",
-            enterWithInviteCode
-        );
+        target.classList.add("active");
 
     }
-
-
-    // Enterキーでも入室
-    const inviteInput =
-        document.getElementById("invite-code");
-
-    if (inviteInput) {
-
-        inviteInput.addEventListener(
-            "keydown",
-            event => {
-
-                if (event.key === "Enter") {
-
-                    enterWithInviteCode();
-
-                }
-
-            }
-        );
-
-    }
-
-
-    // ----------------------------------------
-    // 管理者モード
-    // ----------------------------------------
-
-    const adminButton =
-        document.getElementById("admin-button");
-
-    if (adminButton) {
-
-        adminButton.addEventListener(
-            "click",
-            openAdminLogin
-        );
-
-    }
-
-
-    // ----------------------------------------
-    // 管理者ログイン
-    // ----------------------------------------
-
-    const adminLoginButton =
-        document.getElementById(
-            "admin-login-button"
-        );
-
-    if (adminLoginButton) {
-
-        adminLoginButton.addEventListener(
-            "click",
-            adminLogin
-        );
-
-    }
-
-
-    const adminLoginBack =
-        document.getElementById(
-            "admin-login-back"
-        );
-
-    if (adminLoginBack) {
-
-        adminLoginBack.addEventListener(
-            "click",
-            () => {
-
-                adminLoginScreen.classList.add(
-                    "hidden"
-                );
-
-                inviteScreen.classList.remove(
-                    "hidden"
-                );
-
-            }
-        );
-
-    }
-
-
-    // ----------------------------------------
-    // 一般画面戻る
-    // ----------------------------------------
-
-    document
-        .getElementById("back-to-subjects")
-        ?.addEventListener(
-            "click",
-            () => showUserScreen(subjectScreen)
-        );
-
-
-    document
-        .getElementById("back-to-problems")
-        ?.addEventListener(
-            "click",
-            () => showUserScreen(problemScreen)
-        );
-
-
-    document
-        .getElementById("back-to-questions")
-        ?.addEventListener(
-            "click",
-            () => showUserScreen(questionScreen)
-        );
-
-
-    // ----------------------------------------
-    // 管理者ログアウト
-    // ----------------------------------------
-
-    document
-        .getElementById("logout-button")
-        ?.addEventListener(
-            "click",
-            logoutAdmin
-        );
-
-
-    // ----------------------------------------
-    // 科目
-    // ----------------------------------------
-
-    document
-        .getElementById("add-subject-button")
-        ?.addEventListener(
-            "click",
-            addSubject
-        );
-
-
-    // ----------------------------------------
-    // 大問
-    // ----------------------------------------
-
-    document
-        .getElementById("admin-back-subjects")
-        ?.addEventListener(
-            "click",
-            () => {
-
-                adminProblemScreen.classList.add(
-                    "hidden"
-                );
-
-                document
-                    .getElementById(
-                        "admin-subject-screen"
-                    )
-                    .classList.remove(
-                        "hidden"
-                    );
-
-                loadAdminSubjects();
-
-            }
-        );
-
-
-    document
-        .getElementById("add-problem-button")
-        ?.addEventListener(
-            "click",
-            addProblem
-        );
-
-
-    // ----------------------------------------
-    // 小問
-    // ----------------------------------------
-
-    document
-        .getElementById("admin-back-problems")
-        ?.addEventListener(
-            "click",
-            () => {
-
-                adminQuestionScreen.classList.add(
-                    "hidden"
-                );
-
-                adminProblemScreen.classList.remove(
-                    "hidden"
-                );
-
-                loadAdminProblems(adminSubject);
-
-            }
-        );
-
-
-    document
-        .getElementById("add-question-button")
-        ?.addEventListener(
-            "click",
-            () => openQuestionEditor(null)
-        );
-
-
-    // ----------------------------------------
-    // 編集
-    // ----------------------------------------
-
-    document
-        .getElementById("admin-editor-back")
-        ?.addEventListener(
-            "click",
-            closeQuestionEditor
-        );
-
-
-    document
-        .getElementById("cancel-question-button")
-        ?.addEventListener(
-            "click",
-            closeQuestionEditor
-        );
-
-
-    document
-        .getElementById("save-question-button")
-        ?.addEventListener(
-            "click",
-            saveQuestion
-        );
-
-
-    document
-        .getElementById("remove-image-button")
-        ?.addEventListener(
-            "click",
-            markImageForRemoval
-        );
-
-
-    console.log("イベント設定完了");
 
 }
 
 
 // ============================================================
-// 一般画面
+// 入室
 // ============================================================
 
-function hideAllUserScreens() {
-
-    inviteScreen?.classList.add("hidden");
-    subjectScreen?.classList.add("hidden");
-    problemScreen?.classList.add("hidden");
-    questionScreen?.classList.add("hidden");
-    answerScreen?.classList.add("hidden");
-
-}
-
-
-function showUserScreen(screen) {
-
-    hideAllUserScreens();
-
-    screen?.classList.remove("hidden");
-
-}
-
-
-// ============================================================
-// 招待コード
-// ============================================================
-
-async function enterWithInviteCode() {
-
-    console.log("入室ボタンが押されました");
-
-    const input =
-        document.getElementById("invite-code");
-
-    const error =
-        document.getElementById("invite-error");
+async function enterSystem() {
 
     const code =
-        input.value.trim();
+        document
+            .getElementById("invite-code")
+            .value
+            .trim();
+
+
+    const error =
+        document.getElementById("entry-error");
+
 
     error.textContent = "";
-
-
-    // 現在の仮招待コード
-    const INVITE_CODE = "1234";
 
 
     if (code !== INVITE_CODE) {
@@ -482,712 +324,58 @@ async function enterWithInviteCode() {
             "招待コードが正しくありません。";
 
         return;
-    }
-
-
-    // Supabaseがなくてもコード確認自体は動く
-    await loadSubjects();
-
-}
-
-
-// ============================================================
-// 科目
-// ============================================================
-
-async function loadSubjects() {
-
-    if (!supabaseClient) {
-
-        document
-            .getElementById("invite-error")
-            .textContent =
-            "Supabaseに接続できていません。app.jsのURLとKeyを確認してください。";
-
-        return;
-    }
-
-
-    const list =
-        document.getElementById(
-            "subject-list"
-        );
-
-    list.innerHTML =
-        "読み込み中...";
-
-
-    const {
-        data,
-        error
-    } = await supabaseClient
-        .from("subjects")
-        .select("*")
-        .order(
-            "sort_order",
-            {
-                ascending: true
-            }
-        );
-
-
-    if (error) {
-
-        console.error(
-            "科目取得エラー:",
-            error
-        );
-
-        list.innerHTML =
-            "科目の読み込みに失敗しました。";
-
-        alert(
-            "Supabaseから科目を取得できませんでした。\n\n" +
-            error.message
-        );
-
-        return;
-    }
-
-
-    list.innerHTML = "";
-
-
-    if (!data || data.length === 0) {
-
-        list.innerHTML =
-            "登録されている科目がありません。";
 
     }
-
-
-    data.forEach(subject => {
-
-        const card =
-            document.createElement("div");
-
-        card.className =
-            "card";
-
-
-        const title =
-            document.createElement("div");
-
-        title.className =
-            "card-title";
-
-        title.textContent =
-            subject.name;
-
-
-        card.appendChild(title);
-
-
-        card.addEventListener(
-            "click",
-            () => {
-
-                currentSubject =
-                    subject;
-
-                loadProblems(subject);
-
-            }
-        );
-
-
-        list.appendChild(card);
-
-    });
-
-
-    showUserScreen(subjectScreen);
-
-}
-
-
-// ============================================================
-// 大問
-// ============================================================
-
-async function loadProblems(subject) {
-
-    const list =
-        document.getElementById(
-            "problem-list"
-        );
-
-
-    document.getElementById(
-        "problem-title"
-    ).textContent =
-        `${subject.name}：大問を選択`;
-
-
-    list.innerHTML =
-        "読み込み中...";
-
-
-    const {
-        data,
-        error
-    } = await supabaseClient
-        .from("problems")
-        .select("*")
-        .eq(
-            "subject_id",
-            subject.id
-        )
-        .order(
-            "sort_order",
-            {
-                ascending: true
-            }
-        );
-
-
-    if (error) {
-
-        console.error(error);
-
-        list.innerHTML =
-            "大問の読み込みに失敗しました。";
-
-        return;
-    }
-
-
-    list.innerHTML = "";
-
-
-    data.forEach(problem => {
-
-        const card =
-            document.createElement("div");
-
-        card.className =
-            "card";
-
-
-        const title =
-            document.createElement("div");
-
-        title.className =
-            "card-title";
-
-        title.textContent =
-            problem.name;
-
-
-        card.appendChild(title);
-
-
-        card.addEventListener(
-            "click",
-            () => {
-
-                currentProblem =
-                    problem;
-
-                loadQuestions(problem);
-
-            }
-        );
-
-
-        list.appendChild(card);
-
-    });
-
-
-    showUserScreen(problemScreen);
-
-}
-
-
-// ============================================================
-// 小問
-// ============================================================
-
-async function loadQuestions(problem) {
-
-    const list =
-        document.getElementById(
-            "question-list"
-        );
-
-
-    document.getElementById(
-        "question-title"
-    ).textContent =
-        `${problem.name}：小問を選択`;
-
-
-    list.innerHTML =
-        "読み込み中...";
-
-
-    const {
-        data,
-        error
-    } = await supabaseClient
-        .from("questions")
-        .select("*")
-        .eq(
-            "problem_id",
-            problem.id
-        )
-        .order(
-            "sort_order",
-            {
-                ascending: true
-            }
-        );
-
-
-    if (error) {
-
-        console.error(error);
-
-        list.innerHTML =
-            "小問の読み込みに失敗しました。";
-
-        return;
-    }
-
-
-    list.innerHTML = "";
-
-
-    data.forEach(question => {
-
-        const card =
-            document.createElement("div");
-
-        card.className =
-            "card";
-
-
-        const title =
-            document.createElement("div");
-
-        title.className =
-            "card-title";
-
-        title.textContent =
-            question.name;
-
-
-        card.appendChild(title);
-
-
-        card.addEventListener(
-            "click",
-            () => {
-
-                currentQuestion =
-                    question;
-
-                showAnswer(question);
-
-            }
-        );
-
-
-        list.appendChild(card);
-
-    });
-
-
-    showUserScreen(questionScreen);
-
-}
-
-
-// ============================================================
-// 解答
-// ============================================================
-
-function showAnswer(question) {
-
-    document.getElementById(
-        "breadcrumb"
-    ).textContent =
-        `${currentSubject.name} ＞ ${currentProblem.name} ＞ ${question.name}`;
-
-
-    document.getElementById(
-        "answer-question-name"
-    ).textContent =
-        question.name;
-
-
-    document.getElementById(
-        "answer-problem"
-    ).textContent =
-        question.problem ||
-        "問題文がありません。";
-
-
-    document.getElementById(
-        "answer-answer"
-    ).textContent =
-        question.answer ||
-        "答えがありません。";
-
-
-    document.getElementById(
-        "answer-explanation"
-    ).textContent =
-        question.explanation ||
-        "解説がありません。";
-
-
-    const imageSection =
-        document.getElementById(
-            "answer-image-section"
-        );
-
-    const image =
-        document.getElementById(
-            "answer-image"
-        );
-
-
-    if (question.image_url) {
-
-        image.src =
-            question.image_url;
-
-        imageSection.classList.remove(
-            "hidden"
-        );
-
-    } else {
-
-        image.src = "";
-
-        imageSection.classList.add(
-            "hidden"
-        );
-
-    }
-
-
-    showUserScreen(answerScreen);
-
-}
-
-
-// ============================================================
-// 管理者ログイン画面
-// ============================================================
-
-function openAdminLogin() {
-
-    console.log(
-        "管理者モードが押されました"
-    );
-
-
-    hideAllUserScreens();
-
-
-    adminArea.classList.add(
-        "hidden"
-    );
-
-
-    adminLoginScreen.classList.remove(
-        "hidden"
-    );
-
-}
-
-
-// ============================================================
-// 管理者ログイン
-// ============================================================
-
-async function adminLogin() {
-
-    const email =
-        document.getElementById(
-            "admin-email"
-        ).value.trim();
-
-
-    const password =
-        document.getElementById(
-            "admin-password"
-        ).value;
-
-
-    const errorElement =
-        document.getElementById(
-            "admin-login-error"
-        );
-
-
-    errorElement.textContent = "";
 
 
     if (!supabaseClient) {
 
-        errorElement.textContent =
-            "Supabaseが初期化されていません。";
+        error.textContent =
+            "データベースに接続できません。";
 
         return;
+
     }
 
 
-    if (!email || !password) {
-
-        errorElement.textContent =
-            "メールアドレスとパスワードを入力してください。";
-
-        return;
-    }
-
-
-    const {
-        data,
-        error
-    } =
-        await supabaseClient.auth
-            .signInWithPassword({
-                email,
-                password
-            });
-
-
-    if (error) {
-
-        console.error(
-            "ログインエラー:",
-            error
-        );
-
-        errorElement.textContent =
-            "ログインに失敗しました："
-            + error.message;
-
-        return;
-    }
-
-
-    const isAdmin =
-        await checkIsAdmin(
-            data.user.id
-        );
-
-
-    if (!isAdmin) {
-
-        await supabaseClient.auth.signOut();
-
-
-        errorElement.textContent =
-            "このアカウントには管理者権限がありません。";
-
-        return;
-    }
-
-
-    openAdminArea(
-        data.user
-    );
+    await showSubjects();
 
 }
 
 
 // ============================================================
-// 管理者確認
+// 科目一覧
 // ============================================================
 
-async function checkIsAdmin(userId) {
+async function showSubjects() {
 
-    const {
-        data,
-        error
-    } =
+    showScreen("subject-screen");
+
+
+    const list =
+        document.getElementById("subject-list");
+
+
+    list.innerHTML =
+        "<p>読み込み中...</p>";
+
+
+    const { data, error } =
         await supabaseClient
-            .from("admin_users")
-            .select("user_id")
-            .eq(
-                "user_id",
-                userId
-            )
-            .maybeSingle();
 
-
-    if (error) {
-
-        console.error(
-            "管理者確認エラー:",
-            error
-        );
-
-        return false;
-    }
-
-
-    return !!data;
-
-}
-
-
-// ============================================================
-// セッション
-// ============================================================
-
-async function checkAdminSession() {
-
-    if (!supabaseClient) {
-        return;
-    }
-
-
-    const {
-        data
-    } =
-        await supabaseClient.auth
-            .getSession();
-
-
-    const session =
-        data.session;
-
-
-    if (!session) {
-        return;
-    }
-
-
-    const isAdmin =
-        await checkIsAdmin(
-            session.user.id
-        );
-
-
-    if (isAdmin) {
-
-        openAdminArea(
-            session.user
-        );
-
-    }
-
-}
-
-
-// ============================================================
-// 管理者画面
-// ============================================================
-
-function openAdminArea(user) {
-
-    hideAllUserScreens();
-
-
-    adminLoginScreen.classList.add(
-        "hidden"
-    );
-
-
-    adminArea.classList.remove(
-        "hidden"
-    );
-
-
-    document.getElementById(
-        "admin-email-display"
-    ).textContent =
-        user.email || "";
-
-
-    document
-        .getElementById(
-            "admin-subject-screen"
-        )
-        .classList.remove(
-            "hidden"
-        );
-
-
-    adminProblemScreen.classList.add(
-        "hidden"
-    );
-
-    adminQuestionScreen.classList.add(
-        "hidden"
-    );
-
-    adminQuestionEditor.classList.add(
-        "hidden"
-    );
-
-
-    loadAdminSubjects();
-
-}
-
-
-// ============================================================
-// ログアウト
-// ============================================================
-
-async function logoutAdmin() {
-
-    if (supabaseClient) {
-
-        await supabaseClient.auth.signOut();
-
-    }
-
-
-    adminArea.classList.add(
-        "hidden"
-    );
-
-
-    adminLoginScreen.classList.add(
-        "hidden"
-    );
-
-
-    inviteScreen.classList.remove(
-        "hidden"
-    );
-
-}
-
-
-// ============================================================
-// 管理者：科目
-// ============================================================
-
-async function loadAdminSubjects() {
-
-    const list =
-        document.getElementById(
-            "admin-subject-list"
-        );
-
-
-    list.innerHTML =
-        "読み込み中...";
-
-
-    const {
-        data,
-        error
-    } =
-        await supabaseClient
             .from("subjects")
+
             .select("*")
+
             .order(
                 "sort_order",
+                {
+                    ascending: true
+                }
+            )
+
+            .order(
+                "id",
                 {
                     ascending: true
                 }
@@ -1199,9 +387,789 @@ async function loadAdminSubjects() {
         console.error(error);
 
         list.innerHTML =
-            "科目の読み込みに失敗しました。";
+            "<p class='error'>科目を読み込めませんでした。</p>";
 
         return;
+
+    }
+
+
+    list.innerHTML = "";
+
+
+    if (!data || data.length === 0) {
+
+        list.innerHTML =
+            "<p>科目がありません。</p>";
+
+        return;
+
+    }
+
+
+    data.forEach(subject => {
+
+        const button =
+            document.createElement("button");
+
+
+        button.textContent =
+            subject.name;
+
+
+        button.addEventListener(
+            "click",
+            () => {
+
+                currentSubject =
+                    subject;
+
+                showProblems(subject);
+
+            }
+        );
+
+
+        list.appendChild(button);
+
+    });
+
+}
+
+
+// ============================================================
+// 大問一覧
+// ============================================================
+
+async function showProblems(subject) {
+
+    currentSubject =
+        subject;
+
+
+    showScreen("problem-screen");
+
+
+    document
+        .getElementById("problem-title")
+        .textContent =
+            `${subject.name}：大問を選択`;
+
+
+    const list =
+        document.getElementById("problem-list");
+
+
+    list.innerHTML =
+        "<p>読み込み中...</p>";
+
+
+    const { data, error } =
+        await supabaseClient
+
+            .from("problems")
+
+            .select("*")
+
+            .eq(
+                "subject_id",
+                subject.id
+            )
+
+            .order(
+                "sort_order",
+                {
+                    ascending: true
+                }
+            )
+
+            .order(
+                "id",
+                {
+                    ascending: true
+                }
+            );
+
+
+    if (error) {
+
+        console.error(error);
+
+        list.innerHTML =
+            "<p class='error'>大問を読み込めませんでした。</p>";
+
+        return;
+
+    }
+
+
+    list.innerHTML = "";
+
+
+    if (!data || data.length === 0) {
+
+        list.innerHTML =
+            "<p>大問がありません。</p>";
+
+        return;
+
+    }
+
+
+    data.forEach(problem => {
+
+        const button =
+            document.createElement("button");
+
+
+        button.textContent =
+            problem.name;
+
+
+        button.addEventListener(
+            "click",
+            () => {
+
+                currentProblem =
+                    problem;
+
+                showQuestions(problem);
+
+            }
+        );
+
+
+        list.appendChild(button);
+
+    });
+
+}
+
+
+// ============================================================
+// 小問一覧
+// ============================================================
+
+async function showQuestions(problem) {
+
+    currentProblem =
+        problem;
+
+
+    showScreen("question-screen");
+
+
+    document
+        .getElementById("question-title")
+        .textContent =
+            `${currentSubject.name} ＞ ${problem.name}`;
+
+
+    const list =
+        document.getElementById("question-list");
+
+
+    list.innerHTML =
+        "<p>読み込み中...</p>";
+
+
+    const { data, error } =
+        await supabaseClient
+
+            .from("questions")
+
+            .select(
+                "id, name, problem_id, sort_order"
+            )
+
+            .eq(
+                "problem_id",
+                problem.id
+            )
+
+            .order(
+                "sort_order",
+                {
+                    ascending: true
+                }
+            )
+
+            .order(
+                "id",
+                {
+                    ascending: true
+                }
+            );
+
+
+    if (error) {
+
+        console.error(error);
+
+        list.innerHTML =
+            "<p class='error'>小問を読み込めませんでした。</p>";
+
+        return;
+
+    }
+
+
+    list.innerHTML = "";
+
+
+    if (!data || data.length === 0) {
+
+        list.innerHTML =
+            "<p>小問がありません。</p>";
+
+    }
+
+    else {
+
+        data.forEach(question => {
+
+            const button =
+                document.createElement("button");
+
+
+            button.textContent =
+                question.name;
+
+
+            button.addEventListener(
+                "click",
+                () => {
+
+                    showAnswer(question.id);
+
+                }
+            );
+
+
+            list.appendChild(button);
+
+        });
+
+    }
+
+}
+
+
+// ============================================================
+// 解答表示
+// ============================================================
+
+async function showAnswer(questionId) {
+
+    const { data, error } =
+        await supabaseClient
+
+            .from("questions")
+
+            .select("*")
+
+            .eq(
+                "id",
+                questionId
+            )
+
+            .single();
+
+
+    if (error) {
+
+        console.error(error);
+
+        alert(
+            "解答を読み込めませんでした。"
+        );
+
+        return;
+
+    }
+
+
+    currentQuestion =
+        data;
+
+
+    showScreen("answer-screen");
+
+
+    document
+        .getElementById("answer-breadcrumb")
+        .textContent =
+            `${currentSubject.name} ＞ ${currentProblem.name} ＞ ${data.name}`;
+
+
+    document
+        .getElementById("answer-question-name")
+        .textContent =
+            data.name;
+
+
+    // ========================================================
+    // 重要
+    // 問題文・解説・画像は表示しない
+    // 解答だけを表示する
+    // ========================================================
+
+    document
+        .getElementById("answer-text")
+        .textContent =
+            data.answer ||
+            "解答が登録されていません。";
+
+}
+
+
+// ============================================================
+// ご要望画面
+// ============================================================
+
+function openRequestScreen() {
+
+    if (
+        !currentSubject ||
+        !currentProblem
+    ) {
+
+        return;
+
+    }
+
+
+    showScreen("request-screen");
+
+
+    document
+        .getElementById("request-breadcrumb")
+        .textContent =
+            `${currentSubject.name} ＞ ${currentProblem.name}`;
+
+
+    document
+        .getElementById("request-message")
+        .value = "";
+
+
+    document
+        .getElementById("request-result")
+        .textContent = "";
+
+}
+
+
+// ============================================================
+// ご要望送信
+// ============================================================
+
+async function submitRequest() {
+
+    const message =
+        document
+            .getElementById("request-message")
+            .value
+            .trim();
+
+
+    const result =
+        document
+            .getElementById("request-result");
+
+
+    const button =
+        document
+            .getElementById("request-submit");
+
+
+    result.textContent = "";
+
+
+    if (!message) {
+
+        result.textContent =
+            "内容を入力してください。";
+
+        result.style.color =
+            "#b42318";
+
+        return;
+
+    }
+
+
+    if (message.length > 1000) {
+
+        result.textContent =
+            "1000文字以内で入力してください。";
+
+        result.style.color =
+            "#b42318";
+
+        return;
+
+    }
+
+
+    button.disabled = true;
+
+    button.textContent =
+        "送信中...";
+
+
+    const { error } =
+        await supabaseClient
+
+            .from("requests")
+
+            .insert({
+
+                subject_id:
+                    currentSubject
+                        ? currentSubject.id
+                        : null,
+
+                problem_id:
+                    currentProblem
+                        ? currentProblem.id
+                        : null,
+
+                question_id:
+                    currentQuestion
+                        ? currentQuestion.id
+                        : null,
+
+                message:
+                    message,
+
+                status:
+                    "未確認"
+
+            });
+
+
+    button.disabled = false;
+
+    button.textContent =
+        "送信";
+
+
+    if (error) {
+
+        console.error(error);
+
+        result.textContent =
+            "送信できませんでした。もう一度試してください。";
+
+        result.style.color =
+            "#b42318";
+
+        return;
+
+    }
+
+
+    result.textContent =
+        "送信しました。ありがとうございます。";
+
+    result.style.color =
+        "#277043";
+
+
+    setTimeout(
+        () => {
+
+            showQuestions(
+                currentProblem
+            );
+
+        },
+        1200
+    );
+
+}
+
+
+// ============================================================
+// 管理者ログイン画面
+// ============================================================
+
+function openAdminLogin() {
+
+    showScreen(
+        "admin-login-screen"
+    );
+
+
+    document
+        .getElementById("admin-login-error")
+        .textContent = "";
+
+}
+
+
+// ============================================================
+// 管理者ログイン
+// ============================================================
+
+async function adminLogin() {
+
+    const email =
+        document
+            .getElementById("admin-email")
+            .value
+            .trim();
+
+
+    const password =
+        document
+            .getElementById("admin-password")
+            .value;
+
+
+    const errorBox =
+        document
+            .getElementById("admin-login-error");
+
+
+    errorBox.textContent = "";
+
+
+    if (!email || !password) {
+
+        errorBox.textContent =
+            "メールアドレスとパスワードを入力してください。";
+
+        return;
+
+    }
+
+
+    if (!supabaseClient) {
+
+        errorBox.textContent =
+            "Supabaseに接続できません。";
+
+        return;
+
+    }
+
+
+    const { error } =
+        await supabaseClient.auth
+            .signInWithPassword({
+
+                email:
+                    email,
+
+                password:
+                    password
+
+            });
+
+
+    if (error) {
+
+        console.error(error);
+
+        errorBox.textContent =
+            "ログインできませんでした。";
+
+        return;
+
+    }
+
+
+    const isAdmin =
+        await checkAdmin();
+
+
+    if (!isAdmin) {
+
+        await supabaseClient.auth.signOut();
+
+
+        errorBox.textContent =
+            "このアカウントには管理者権限がありません。";
+
+        return;
+
+    }
+
+
+    document
+        .getElementById("admin-email")
+        .value = "";
+
+
+    document
+        .getElementById("admin-password")
+        .value = "";
+
+
+    showScreen(
+        "admin-screen"
+    );
+
+
+    renderAdminSubjects();
+
+}
+
+
+// ============================================================
+// 管理者確認
+// ============================================================
+
+async function checkAdmin() {
+
+    const {
+        data: {
+            user
+        }
+    } =
+        await supabaseClient.auth
+            .getUser();
+
+
+    if (!user) {
+
+        return false;
+
+    }
+
+
+    const { data, error } =
+        await supabaseClient
+
+            .from("admin_users")
+
+            .select("user_id")
+
+            .eq(
+                "user_id",
+                user.id
+            )
+
+            .maybeSingle();
+
+
+    if (error) {
+
+        console.error(error);
+
+        return false;
+
+    }
+
+
+    return !!data;
+
+}
+
+
+// ============================================================
+// 管理者ログアウト
+// ============================================================
+
+async function adminLogout() {
+
+    await supabaseClient.auth.signOut();
+
+    showScreen(
+        "entry-screen"
+    );
+
+}
+
+
+// ============================================================
+// 管理者：科目管理
+// ============================================================
+
+async function renderAdminSubjects() {
+
+    const content =
+        document
+            .getElementById("admin-content");
+
+
+    content.innerHTML = `
+
+        <h2>科目管理</h2>
+
+        <div class="admin-toolbar">
+
+            <button
+                id="add-subject-button"
+                class="primary-button">
+
+                ＋ 科目を追加
+
+            </button>
+
+        </div>
+
+        <div
+            id="admin-subject-list"
+            class="admin-list">
+
+            読み込み中...
+
+        </div>
+
+    `;
+
+
+    document
+        .getElementById(
+            "add-subject-button"
+        )
+        .addEventListener(
+            "click",
+            addSubject
+        );
+
+
+    const { data, error } =
+        await supabaseClient
+
+            .from("subjects")
+
+            .select("*")
+
+            .order(
+                "sort_order",
+                {
+                    ascending: true
+                }
+            )
+
+            .order(
+                "id",
+                {
+                    ascending: true
+                }
+            );
+
+
+    const list =
+        document
+            .getElementById(
+                "admin-subject-list"
+            );
+
+
+    if (error) {
+
+        console.error(error);
+
+        list.innerHTML =
+            "<p class='error'>読み込みに失敗しました。</p>";
+
+        return;
+
     }
 
 
@@ -1210,49 +1178,68 @@ async function loadAdminSubjects() {
 
     data.forEach(subject => {
 
-        const item =
-            createAdminItem(
-                subject.name,
-                [
-                    {
-                        text: "開く",
-
-                        action: () => {
-
-                            adminSubject =
-                                subject;
-
-                            loadAdminProblems(
-                                subject
-                            );
-
-                        }
-                    },
-
-                    {
-                        text: "名前変更",
-
-                        action: () =>
-                            renameSubject(
-                                subject
-                            )
-                    },
-
-                    {
-                        text: "削除",
-
-                        danger: true,
-
-                        action: () =>
-                            deleteSubject(
-                                subject
-                            )
-                    }
-                ]
+        const row =
+            document.createElement(
+                "div"
             );
 
 
-        list.appendChild(item);
+        row.className =
+            "admin-row";
+
+
+        row.innerHTML = `
+
+            <div class="admin-row-main">
+
+                <strong>
+                    ${escapeHtml(subject.name)}
+                </strong>
+
+                <div class="admin-row-actions">
+
+                    <button
+                        class="secondary-button rename-button">
+
+                        名前変更
+
+                    </button>
+
+                    <button
+                        class="danger-button delete-button">
+
+                        削除
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        `;
+
+
+        row
+            .querySelector(
+                ".rename-button"
+            )
+            .addEventListener(
+                "click",
+                () => renameSubject(subject)
+            );
+
+
+        row
+            .querySelector(
+                ".delete-button"
+            )
+            .addEventListener(
+                "click",
+                () => deleteSubject(subject)
+            );
+
+
+        list.appendChild(row);
 
     });
 
@@ -1267,66 +1254,76 @@ async function addSubject() {
 
     const name =
         prompt(
-            "新しい科目名を入力してください。"
+            "科目名を入力してください。"
         );
 
 
-    if (!name || !name.trim()) {
+    if (!name?.trim()) {
+
         return;
+
     }
 
 
-    const {
-        data: existing
-    } =
+    const { data: maxData } =
         await supabaseClient
+
             .from("subjects")
+
             .select("sort_order")
+
             .order(
                 "sort_order",
                 {
                     ascending: false
                 }
             )
+
             .limit(1);
 
 
     const sortOrder =
-        existing &&
-        existing.length
-            ? existing[0].sort_order + 1
+        maxData?.length
+            ? maxData[0].sort_order + 1
             : 1;
 
 
-    const {
-        error
-    } =
+    const { error } =
         await supabaseClient
+
             .from("subjects")
+
             .insert({
-                name: name.trim(),
-                sort_order: sortOrder
+
+                name:
+                    name.trim(),
+
+                sort_order:
+                    sortOrder
+
             });
 
 
     if (error) {
 
         alert(
-            "科目の追加に失敗しました。\n" +
-            error.message
+            "追加できませんでした。"
         );
 
+        console.error(error);
+
         return;
+
     }
 
 
-    loadAdminSubjects();
+    renderAdminSubjects();
 
 }
 
 
 // ============================================================
-// 科目変更
+// 科目名前変更
 // ============================================================
 
 async function renameSubject(subject) {
@@ -1338,19 +1335,25 @@ async function renameSubject(subject) {
         );
 
 
-    if (!name || !name.trim()) {
+    if (!name?.trim()) {
+
         return;
+
     }
 
 
-    const {
-        error
-    } =
+    const { error } =
         await supabaseClient
+
             .from("subjects")
+
             .update({
-                name: name.trim()
+
+                name:
+                    name.trim()
+
             })
+
             .eq(
                 "id",
                 subject.id
@@ -1360,15 +1363,17 @@ async function renameSubject(subject) {
     if (error) {
 
         alert(
-            "名前変更に失敗しました。\n" +
-            error.message
+            "変更できませんでした。"
         );
 
+        console.error(error);
+
         return;
+
     }
 
 
-    loadAdminSubjects();
+    renderAdminSubjects();
 
 }
 
@@ -1379,24 +1384,24 @@ async function renameSubject(subject) {
 
 async function deleteSubject(subject) {
 
-    const ok =
-        confirm(
-            `「${subject.name}」を削除しますか？\n\n` +
-            "この科目に含まれる大問・小問も削除されます。"
-        );
+    if (
+        !confirm(
+            `「${subject.name}」を削除しますか？\n関連する大問・小問も削除されます。`
+        )
+    ) {
 
-
-    if (!ok) {
         return;
+
     }
 
 
-    const {
-        error
-    } =
+    const { error } =
         await supabaseClient
+
             .from("subjects")
+
             .delete()
+
             .eq(
                 "id",
                 subject.id
@@ -1406,80 +1411,44 @@ async function deleteSubject(subject) {
     if (error) {
 
         alert(
-            "削除に失敗しました。\n" +
-            error.message
+            "削除できませんでした。"
         );
 
+        console.error(error);
+
         return;
+
     }
 
 
-    loadAdminSubjects();
+    renderAdminSubjects();
 
 }
 
 
 // ============================================================
-// 管理者：大問
+// 管理者：大問管理
 // ============================================================
 
-async function loadAdminProblems(subject) {
+async function renderAdminProblems() {
 
-    adminSubject =
-        subject;
-
-
-    document
-        .getElementById(
-            "admin-subject-screen"
-        )
-        .classList.add(
-            "hidden"
-        );
-
-
-    adminQuestionScreen.classList.add(
-        "hidden"
-    );
-
-
-    adminQuestionEditor.classList.add(
-        "hidden"
-    );
-
-
-    adminProblemScreen.classList.remove(
-        "hidden"
-    );
-
-
-    document.getElementById(
-        "admin-problem-title"
-    ).textContent =
-        `${subject.name}：大問管理`;
-
-
-    const list =
-        document.getElementById(
-            "admin-problem-list"
-        );
-
-
-    list.innerHTML =
-        "読み込み中...";
+    const content =
+        document
+            .getElementById(
+                "admin-content"
+            );
 
 
     const {
-        data,
+        data: subjects,
         error
     } =
         await supabaseClient
-            .from("problems")
+
+            .from("subjects")
+
             .select("*")
-            .eq(
-                "subject_id",
-                subject.id
-            )
+
             .order(
                 "sort_order",
                 {
@@ -1490,12 +1459,175 @@ async function loadAdminProblems(subject) {
 
     if (error) {
 
-        console.error(error);
-
-        list.innerHTML =
-            "大問の読み込みに失敗しました。";
+        content.innerHTML =
+            "<p class='error'>科目を読み込めませんでした。</p>";
 
         return;
+
+    }
+
+
+    content.innerHTML = `
+
+        <h2>大問管理</h2>
+
+        <select
+            id="admin-problem-subject-select">
+
+            <option value="">
+                科目を選択してください
+            </option>
+
+            ${subjects
+                .map(subject => `
+                    <option value="${subject.id}">
+                        ${escapeHtml(subject.name)}
+                    </option>
+                `)
+                .join("")}
+
+        </select>
+
+        <div id="admin-problem-area"></div>
+
+    `;
+
+
+    document
+        .getElementById(
+            "admin-problem-subject-select"
+        )
+        .addEventListener(
+            "change",
+            async event => {
+
+                const subjectId =
+                    Number(
+                        event.target.value
+                    );
+
+
+                if (!subjectId) {
+
+                    document
+                        .getElementById(
+                            "admin-problem-area"
+                        )
+                        .innerHTML = "";
+
+                    return;
+
+                }
+
+
+                adminSubject =
+                    subjects.find(
+                        subject =>
+                            subject.id === subjectId
+                    );
+
+
+                await loadAdminProblems(
+                    subjectId
+                );
+
+            }
+        );
+
+}
+
+
+// ============================================================
+// 大問一覧
+// ============================================================
+
+async function loadAdminProblems(
+    subjectId
+) {
+
+    const area =
+        document
+            .getElementById(
+                "admin-problem-area"
+            );
+
+
+    area.innerHTML = `
+
+        <div class="admin-toolbar">
+
+            <button
+                id="add-problem-button"
+                class="primary-button">
+
+                ＋ 大問を追加
+
+            </button>
+
+        </div>
+
+        <div
+            id="admin-problem-list"
+            class="admin-list">
+
+            読み込み中...
+
+        </div>
+
+    `;
+
+
+    document
+        .getElementById(
+            "add-problem-button"
+        )
+        .addEventListener(
+            "click",
+            () => addProblem(subjectId)
+        );
+
+
+    const { data, error } =
+        await supabaseClient
+
+            .from("problems")
+
+            .select("*")
+
+            .eq(
+                "subject_id",
+                subjectId
+            )
+
+            .order(
+                "sort_order",
+                {
+                    ascending: true
+                }
+            )
+
+            .order(
+                "id",
+                {
+                    ascending: true
+                }
+            );
+
+
+    const list =
+        document
+            .getElementById(
+                "admin-problem-list"
+            );
+
+
+    if (error) {
+
+        list.innerHTML =
+            "<p class='error'>読み込みに失敗しました。</p>";
+
+        return;
+
     }
 
 
@@ -1504,49 +1636,76 @@ async function loadAdminProblems(subject) {
 
     data.forEach(problem => {
 
-        const item =
-            createAdminItem(
-                problem.name,
-                [
-                    {
-                        text: "開く",
-
-                        action: () => {
-
-                            adminProblem =
-                                problem;
-
-                            loadAdminQuestions(
-                                problem
-                            );
-
-                        }
-                    },
-
-                    {
-                        text: "名前変更",
-
-                        action: () =>
-                            renameProblem(
-                                problem
-                            )
-                    },
-
-                    {
-                        text: "削除",
-
-                        danger: true,
-
-                        action: () =>
-                            deleteProblem(
-                                problem
-                            )
-                    }
-                ]
+        const row =
+            document.createElement(
+                "div"
             );
 
 
-        list.appendChild(item);
+        row.className =
+            "admin-row";
+
+
+        row.innerHTML = `
+
+            <div class="admin-row-main">
+
+                <strong>
+                    ${escapeHtml(problem.name)}
+                </strong>
+
+                <div class="admin-row-actions">
+
+                    <button
+                        class="secondary-button rename-button">
+
+                        名前変更
+
+                    </button>
+
+                    <button
+                        class="danger-button delete-button">
+
+                        削除
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        `;
+
+
+        row
+            .querySelector(
+                ".rename-button"
+            )
+            .addEventListener(
+                "click",
+                () =>
+                    renameProblem(
+                        problem,
+                        subjectId
+                    )
+            );
+
+
+        row
+            .querySelector(
+                ".delete-button"
+            )
+            .addEventListener(
+                "click",
+                () =>
+                    deleteProblem(
+                        problem,
+                        subjectId
+                    )
+            );
+
+
+        list.appendChild(row);
 
     });
 
@@ -1557,12 +1716,9 @@ async function loadAdminProblems(subject) {
 // 大問追加
 // ============================================================
 
-async function addProblem() {
-
-    if (!adminSubject) {
-        return;
-    }
-
+async function addProblem(
+    subjectId
+) {
 
     const name =
         prompt(
@@ -1570,77 +1726,90 @@ async function addProblem() {
         );
 
 
-    if (!name || !name.trim()) {
+    if (!name?.trim()) {
+
         return;
+
     }
 
 
     const {
-        data: existing
+        data: maxData
     } =
         await supabaseClient
+
             .from("problems")
+
             .select("sort_order")
+
             .eq(
                 "subject_id",
-                adminSubject.id
+                subjectId
             )
+
             .order(
                 "sort_order",
                 {
                     ascending: false
                 }
             )
+
             .limit(1);
 
 
     const sortOrder =
-        existing &&
-        existing.length
-            ? existing[0].sort_order + 1
+        maxData?.length
+            ? maxData[0].sort_order + 1
             : 1;
 
 
-    const {
-        error
-    } =
+    const { error } =
         await supabaseClient
+
             .from("problems")
+
             .insert({
+
                 subject_id:
-                    adminSubject.id,
+                    subjectId,
 
                 name:
                     name.trim(),
 
                 sort_order:
                     sortOrder
+
             });
 
 
     if (error) {
 
         alert(
-            "大問の追加に失敗しました。\n" +
-            error.message
+            "追加できませんでした。"
         );
 
+        console.error(error);
+
         return;
+
     }
 
 
     loadAdminProblems(
-        adminSubject
+        subjectId
     );
 
 }
 
 
 // ============================================================
-// 大問変更
+// 大問名前変更
 // ============================================================
 
-async function renameProblem(problem) {
+async function renameProblem(
+    problem,
+    subjectId
+) {
 
     const name =
         prompt(
@@ -1649,20 +1818,25 @@ async function renameProblem(problem) {
         );
 
 
-    if (!name || !name.trim()) {
+    if (!name?.trim()) {
+
         return;
+
     }
 
 
-    const {
-        error
-    } =
+    const { error } =
         await supabaseClient
+
             .from("problems")
+
             .update({
+
                 name:
                     name.trim()
+
             })
+
             .eq(
                 "id",
                 problem.id
@@ -1672,16 +1846,18 @@ async function renameProblem(problem) {
     if (error) {
 
         alert(
-            "名前変更に失敗しました。\n" +
-            error.message
+            "変更できませんでした。"
         );
 
+        console.error(error);
+
         return;
+
     }
 
 
     loadAdminProblems(
-        adminSubject
+        subjectId
     );
 
 }
@@ -1691,26 +1867,29 @@ async function renameProblem(problem) {
 // 大問削除
 // ============================================================
 
-async function deleteProblem(problem) {
+async function deleteProblem(
+    problem,
+    subjectId
+) {
 
-    const ok =
-        confirm(
-            `「${problem.name}」を削除しますか？\n\n` +
-            "この大問に含まれる小問も削除されます。"
-        );
+    if (
+        !confirm(
+            `「${problem.name}」を削除しますか？\n関連する小問も削除されます。`
+        )
+    ) {
 
-
-    if (!ok) {
         return;
+
     }
 
 
-    const {
-        error
-    } =
+    const { error } =
         await supabaseClient
+
             .from("problems")
+
             .delete()
+
             .eq(
                 "id",
                 problem.id
@@ -1720,73 +1899,46 @@ async function deleteProblem(problem) {
     if (error) {
 
         alert(
-            "削除に失敗しました。\n" +
-            error.message
+            "削除できませんでした。"
         );
 
+        console.error(error);
+
         return;
+
     }
 
 
     loadAdminProblems(
-        adminSubject
+        subjectId
     );
 
 }
 
 
 // ============================================================
-// 小問
+// 管理者：小問管理
 // ============================================================
 
-async function loadAdminQuestions(problem) {
+async function renderAdminQuestions() {
 
-    adminProblem =
-        problem;
-
-
-    adminProblemScreen.classList.add(
-        "hidden"
-    );
-
-
-    adminQuestionEditor.classList.add(
-        "hidden"
-    );
-
-
-    adminQuestionScreen.classList.remove(
-        "hidden"
-    );
-
-
-    document.getElementById(
-        "admin-question-title"
-    ).textContent =
-        `${problem.name}：小問管理`;
-
-
-    const list =
-        document.getElementById(
-            "admin-question-list"
-        );
-
-
-    list.innerHTML =
-        "読み込み中...";
+    const content =
+        document
+            .getElementById(
+                "admin-content"
+            );
 
 
     const {
-        data,
+        data: subjects,
         error
     } =
         await supabaseClient
-            .from("questions")
+
+            .from("subjects")
+
             .select("*")
-            .eq(
-                "problem_id",
-                problem.id
-            )
+
             .order(
                 "sort_order",
                 {
@@ -1797,12 +1949,312 @@ async function loadAdminQuestions(problem) {
 
     if (error) {
 
-        console.error(error);
-
-        list.innerHTML =
-            "小問の読み込みに失敗しました。";
+        content.innerHTML =
+            "<p class='error'>科目を読み込めませんでした。</p>";
 
         return;
+
+    }
+
+
+    content.innerHTML = `
+
+        <h2>小問管理</h2>
+
+        <select
+            id="admin-question-subject-select">
+
+            <option value="">
+                科目を選択してください
+            </option>
+
+            ${subjects
+                .map(subject => `
+                    <option value="${subject.id}">
+                        ${escapeHtml(subject.name)}
+                    </option>
+                `)
+                .join("")}
+
+        </select>
+
+
+        <select
+            id="admin-question-problem-select"
+            disabled>
+
+            <option value="">
+                先に大問を選択してください
+            </option>
+
+        </select>
+
+
+        <div
+            id="admin-question-area">
+        </div>
+
+    `;
+
+
+    document
+        .getElementById(
+            "admin-question-subject-select"
+        )
+        .addEventListener(
+            "change",
+            async event => {
+
+                const subjectId =
+                    Number(
+                        event.target.value
+                    );
+
+
+                const problemSelect =
+                    document
+                        .getElementById(
+                            "admin-question-problem-select"
+                        );
+
+
+                problemSelect.innerHTML = `
+
+                    <option value="">
+                        大問を選択してください
+                    </option>
+
+                `;
+
+
+                problemSelect.disabled =
+                    true;
+
+
+                document
+                    .getElementById(
+                        "admin-question-area"
+                    )
+                    .innerHTML = "";
+
+
+                if (!subjectId) {
+
+                    return;
+
+                }
+
+
+                const {
+                    data: problems
+                } =
+                    await supabaseClient
+
+                        .from("problems")
+
+                        .select("*")
+
+                        .eq(
+                            "subject_id",
+                            subjectId
+                        )
+
+                        .order(
+                            "sort_order",
+                            {
+                                ascending: true
+                            }
+                        );
+
+
+                problems.forEach(
+                    problem => {
+
+                        const option =
+                            document
+                                .createElement(
+                                    "option"
+                                );
+
+
+                        option.value =
+                            problem.id;
+
+
+                        option.textContent =
+                            problem.name;
+
+
+                        problemSelect
+                            .appendChild(
+                                option
+                            );
+
+                    }
+                );
+
+
+                problemSelect.disabled =
+                    false;
+
+            }
+        );
+
+
+    document
+        .getElementById(
+            "admin-question-problem-select"
+        )
+        .addEventListener(
+            "change",
+            async event => {
+
+                const problemId =
+                    Number(
+                        event.target.value
+                    );
+
+
+                if (!problemId) {
+
+                    document
+                        .getElementById(
+                            "admin-question-area"
+                        )
+                        .innerHTML = "";
+
+                    return;
+
+                }
+
+
+                const {
+                    data: problem
+                } =
+                    await supabaseClient
+
+                        .from("problems")
+
+                        .select("*")
+
+                        .eq(
+                            "id",
+                            problemId
+                        )
+
+                        .single();
+
+
+                adminProblem =
+                    problem;
+
+
+                await loadAdminQuestions(
+                    problemId
+                );
+
+            }
+        );
+
+}
+
+
+// ============================================================
+// 小問一覧
+// ============================================================
+
+async function loadAdminQuestions(
+    problemId
+) {
+
+    const area =
+        document
+            .getElementById(
+                "admin-question-area"
+            );
+
+
+    area.innerHTML = `
+
+        <div class="admin-toolbar">
+
+            <button
+                id="add-question-button"
+                class="primary-button">
+
+                ＋ 小問を追加
+
+            </button>
+
+        </div>
+
+
+        <div
+            id="admin-question-list"
+            class="admin-list">
+
+            読み込み中...
+
+        </div>
+
+    `;
+
+
+    document
+        .getElementById(
+            "add-question-button"
+        )
+        .addEventListener(
+            "click",
+            () =>
+                openQuestionEditor(
+                    null,
+                    problemId
+                )
+        );
+
+
+    const { data, error } =
+        await supabaseClient
+
+            .from("questions")
+
+            .select("*")
+
+            .eq(
+                "problem_id",
+                problemId
+            )
+
+            .order(
+                "sort_order",
+                {
+                    ascending: true
+                }
+            )
+
+            .order(
+                "id",
+                {
+                    ascending: true
+                }
+            );
+
+
+    const list =
+        document
+            .getElementById(
+                "admin-question-list"
+            );
+
+
+    if (error) {
+
+        list.innerHTML =
+            "<p class='error'>読み込みに失敗しました。</p>";
+
+        return;
+
     }
 
 
@@ -1811,34 +2263,92 @@ async function loadAdminQuestions(problem) {
 
     data.forEach(question => {
 
-        const item =
-            createAdminItem(
-                question.name,
-                [
-                    {
-                        text: "編集",
-
-                        action: () =>
-                            openQuestionEditor(
-                                question
-                            )
-                    },
-
-                    {
-                        text: "削除",
-
-                        danger: true,
-
-                        action: () =>
-                            deleteQuestion(
-                                question
-                            )
-                    }
-                ]
+        const row =
+            document.createElement(
+                "div"
             );
 
 
-        list.appendChild(item);
+        row.className =
+            "admin-row";
+
+
+        row.innerHTML = `
+
+            <div class="admin-row-main">
+
+                <div>
+
+                    <strong>
+                        ${escapeHtml(question.name)}
+                    </strong>
+
+                    <div class="muted">
+
+                        ${
+                            question.answer
+                                ? "解答あり"
+                                : "解答なし"
+                        }
+
+                    </div>
+
+                </div>
+
+
+                <div class="admin-row-actions">
+
+                    <button
+                        class="secondary-button edit-button">
+
+                        編集
+
+                    </button>
+
+
+                    <button
+                        class="danger-button delete-button">
+
+                        削除
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        `;
+
+
+        row
+            .querySelector(
+                ".edit-button"
+            )
+            .addEventListener(
+                "click",
+                () =>
+                    openQuestionEditor(
+                        question,
+                        problemId
+                    )
+            );
+
+
+        row
+            .querySelector(
+                ".delete-button"
+            )
+            .addEventListener(
+                "click",
+                () =>
+                    deleteQuestion(
+                        question,
+                        problemId
+                    )
+            );
+
+
+        list.appendChild(row);
 
     });
 
@@ -1846,188 +2356,222 @@ async function loadAdminQuestions(problem) {
 
 
 // ============================================================
-// 小問編集
+// 小問編集画面
 // ============================================================
 
-function openQuestionEditor(question) {
+function openQuestionEditor(
+    question,
+    problemId
+) {
+
+    const area =
+        document
+            .getElementById(
+                "admin-question-area"
+            );
+
 
     editingQuestion =
         question;
 
-    removeCurrentImage =
-        false;
+
+    area.innerHTML = `
+
+        <div
+            class="card"
+            style="margin-top:20px;">
+
+            <h3>
+                ${
+                    question
+                        ? "小問を編集"
+                        : "小問を追加"
+                }
+            </h3>
 
 
-    adminQuestionEditor.classList.remove(
-        "hidden"
-    );
+            <label>
+                小問名
+            </label>
 
 
-    adminQuestionScreen.classList.add(
-        "hidden"
-    );
+            <input
+                id="edit-question-name"
+                value="${
+                    question
+                        ? escapeAttribute(
+                            question.name
+                        )
+                        : ""
+                }"
+                placeholder="例：(1)"
+            >
 
 
-    document.getElementById(
-        "editor-title"
-    ).textContent =
-        question
-            ? "小問を編集"
-            : "小問を追加";
+            <label>
+                問題文
+            </label>
 
 
-    document.getElementById(
-        "edit-question-name"
-    ).value =
-        question?.name || "";
+            <textarea
+                id="edit-question-problem"
+                rows="5"
+                placeholder="問題文"
+            >${
+                question
+                    ? escapeHtml(
+                        question.problem || ""
+                    )
+                    : ""
+            }</textarea>
 
 
-    document.getElementById(
-        "edit-question-problem"
-    ).value =
-        question?.problem || "";
+            <label>
+                解答
+            </label>
 
 
-    document.getElementById(
-        "edit-question-answer"
-    ).value =
-        question?.answer || "";
+            <textarea
+                id="edit-question-answer"
+                rows="5"
+                placeholder="解答"
+            >${
+                question
+                    ? escapeHtml(
+                        question.answer || ""
+                    )
+                    : ""
+            }</textarea>
 
 
-    document.getElementById(
-        "edit-question-explanation"
-    ).value =
-        question?.explanation || "";
+            <label>
+                解説
+            </label>
 
 
-    document.getElementById(
-        "edit-question-image-file"
-    ).value = "";
+            <textarea
+                id="edit-question-explanation"
+                rows="5"
+                placeholder="解説"
+            >${
+                question
+                    ? escapeHtml(
+                        question.explanation || ""
+                    )
+                    : ""
+            }</textarea>
 
 
-    showCurrentImage(
-        question
-    );
-
-}
+            <label>
+                問題画像
+            </label>
 
 
-// ============================================================
-// 現在画像
-// ============================================================
-
-function showCurrentImage(question) {
-
-    const area =
-        document.getElementById(
-            "current-image-area"
-        );
+            <input
+                id="edit-question-image"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+            >
 
 
-    const removeButton =
-        document.getElementById(
-            "remove-image-button"
-        );
+            ${
+                question?.image_url
+                    ? `
+
+                        <p class="muted">
+                            現在の画像：
+                        </p>
+
+                        <img
+                            src="${escapeAttribute(
+                                question.image_url
+                            )}"
+                            style="
+                                max-width:300px;
+                                max-height:200px;
+                                border:1px solid #ddd;
+                            "
+                        >
+
+                        <label
+                            style="
+                                display:block;
+                                margin:10px 0;
+                            "
+                        >
+
+                            <input
+                                id="remove-question-image"
+                                type="checkbox"
+                                style="width:auto;"
+                            >
+
+                            現在の画像を削除する
+
+                        </label>
+
+                    `
+                    : ""
+            }
 
 
-    area.innerHTML = "";
+            <div
+                class="form-actions">
+
+                <button
+                    id="cancel-question-edit"
+                    class="secondary-button">
+
+                    キャンセル
+
+                </button>
 
 
-    removeButton.classList.add(
-        "hidden"
-    );
+                <button
+                    id="save-question-button"
+                    class="primary-button">
+
+                    保存
+
+                </button>
+
+            </div>
 
 
-    if (
-        !question ||
-        !question.image_url
-    ) {
+            <p
+                id="question-edit-result"
+                class="result-message">
+            </p>
 
-        return;
+        </div>
 
-    }
-
-
-    const label =
-        document.createElement(
-            "div"
-        );
-
-
-    label.className =
-        "current-image-label";
-
-
-    label.textContent =
-        "現在登録されている画像";
-
-
-    const img =
-        document.createElement(
-            "img"
-        );
-
-
-    img.src =
-        question.image_url;
-
-
-    img.alt =
-        "現在の問題画像";
-
-
-    area.appendChild(label);
-
-    area.appendChild(img);
-
-
-    removeButton.classList.remove(
-        "hidden"
-    );
-
-}
-
-
-// ============================================================
-// 画像削除
-// ============================================================
-
-function markImageForRemoval() {
-
-    if (!editingQuestion) {
-        return;
-    }
-
-
-    const ok =
-        confirm(
-            "現在の画像を削除しますか？"
-        );
-
-
-    if (!ok) {
-        return;
-    }
-
-
-    removeCurrentImage =
-        true;
-
-
-    document.getElementById(
-        "current-image-area"
-    ).innerHTML =
-        `<div class="current-image-label">
-            保存すると画像が削除されます。
-        </div>`;
+    `;
 
 
     document
         .getElementById(
-            "remove-image-button"
+            "cancel-question-edit"
         )
-        .classList.add(
-            "hidden"
+        .addEventListener(
+            "click",
+            () =>
+                loadAdminQuestions(
+                    problemId
+                )
+        );
+
+
+    document
+        .getElementById(
+            "save-question-button"
+        )
+        .addEventListener(
+            "click",
+            () =>
+                saveQuestion(
+                    question,
+                    problemId
+                )
         );
 
 }
@@ -2037,17 +2581,10 @@ function markImageForRemoval() {
 // 小問保存
 // ============================================================
 
-async function saveQuestion() {
-
-    if (!adminProblem) {
-
-        alert(
-            "大問が選択されていません。"
-        );
-
-        return;
-    }
-
+async function saveQuestion(
+    question,
+    problemId
+) {
 
     const name =
         document
@@ -2058,202 +2595,352 @@ async function saveQuestion() {
             .trim();
 
 
-    const problem =
-        document.getElementById(
-            "edit-question-problem"
-        ).value;
+    const problemText =
+        document
+            .getElementById(
+                "edit-question-problem"
+            )
+            .value;
 
 
     const answer =
-        document.getElementById(
-            "edit-question-answer"
-        ).value;
+        document
+            .getElementById(
+                "edit-question-answer"
+            )
+            .value;
 
 
     const explanation =
-        document.getElementById(
-            "edit-question-explanation"
-        ).value;
+        document
+            .getElementById(
+                "edit-question-explanation"
+            )
+            .value;
 
 
     const fileInput =
-        document.getElementById(
-            "edit-question-image-file"
-        );
+        document
+            .getElementById(
+                "edit-question-image"
+            );
 
 
-    const file =
-        fileInput.files[0];
+    const result =
+        document
+            .getElementById(
+                "question-edit-result"
+            );
 
 
     if (!name) {
 
-        alert(
-            "小問名を入力してください。"
-        );
+        result.textContent =
+            "小問名を入力してください。";
+
+        result.style.color =
+            "#b42318";
 
         return;
+
     }
 
 
-    // ----------------------------------------
-    // 既存画像
-    // ----------------------------------------
+    const saveButton =
+        document
+            .getElementById(
+                "save-question-button"
+            );
+
+
+    saveButton.disabled =
+        true;
+
+
+    saveButton.textContent =
+        "保存中...";
+
+
+    let questionId =
+        question?.id;
+
 
     let imageUrl =
-        editingQuestion?.image_url ||
+        question?.image_url ||
         null;
 
 
     let imagePath =
-        editingQuestion?.image_path ||
+        question?.image_path ||
         null;
 
 
-    // ----------------------------------------
-    // 画像形式
-    // ----------------------------------------
+    try {
 
-    if (file) {
+        // ----------------------------------------------------
+        // 新規小問
+        // ----------------------------------------------------
 
-        if (!file.type.startsWith("image/")) {
+        if (!question) {
 
-            alert(
-                "画像ファイルを選択してください。"
-            );
+            const {
+                data: maxData
+            } =
+                await supabaseClient
 
-            return;
-        }
+                    .from("questions")
 
+                    .select("sort_order")
 
-        if (
-            file.size >
-            10 * 1024 * 1024
-        ) {
+                    .eq(
+                        "problem_id",
+                        problemId
+                    )
 
-            alert(
-                "画像サイズは10MB以下にしてください。"
-            );
+                    .order(
+                        "sort_order",
+                        {
+                            ascending: false
+                        }
+                    )
 
-            return;
-        }
-
-    }
-
-
-    // ========================================================
-    // 新規小問
-    // ========================================================
-
-    if (!editingQuestion) {
-
-        const sortOrder =
-            await getNextQuestionSortOrder();
+                    .limit(1);
 
 
-        const {
-            data: newQuestion,
-            error: insertError
-        } =
-            await supabaseClient
-                .from("questions")
-                .insert({
-                    problem_id:
-                        adminProblem.id,
-
-                    name,
-
-                    problem,
-
-                    answer,
-
-                    explanation,
-
-                    image_url:
-                        null,
-
-                    image_path:
-                        null,
-
-                    sort_order:
-                        sortOrder
-                })
-                .select()
-                .single();
-
-
-        if (insertError) {
-
-            console.error(
-                insertError
-            );
-
-            alert(
-                "小問の追加に失敗しました。\n" +
-                insertError.message
-            );
-
-            return;
-        }
-
-
-        // 新しい画像をアップロード
-        if (file) {
-
-            const extension =
-                getFileExtension(file);
-
-
-            const filePath =
-                `questions/${newQuestion.id}-${Date.now()}.${extension}`;
+            const sortOrder =
+                maxData?.length
+                    ? maxData[0].sort_order + 1
+                    : 1;
 
 
             const {
-                data: uploadData,
+                data,
+                error
+            } =
+                await supabaseClient
+
+                    .from("questions")
+
+                    .insert({
+
+                        problem_id:
+                            problemId,
+
+                        name:
+                            name,
+
+                        problem:
+                            problemText,
+
+                        answer:
+                            answer,
+
+                        explanation:
+                            explanation,
+
+                        sort_order:
+                            sortOrder
+
+                    })
+
+                    .select()
+
+                    .single();
+
+
+            if (error) {
+
+                throw error;
+
+            }
+
+
+            questionId =
+                data.id;
+
+        }
+
+        // ----------------------------------------------------
+        // 既存小問
+        // ----------------------------------------------------
+
+        else {
+
+            const { error } =
+                await supabaseClient
+
+                    .from("questions")
+
+                    .update({
+
+                        name:
+                            name,
+
+                        problem:
+                            problemText,
+
+                        answer:
+                            answer,
+
+                        explanation:
+                            explanation
+
+                    })
+
+                    .eq(
+                        "id",
+                        question.id
+                    );
+
+
+            if (error) {
+
+                throw error;
+
+            }
+
+        }
+
+
+        // ----------------------------------------------------
+        // 画像削除
+        // ----------------------------------------------------
+
+        const removeCheckbox =
+            document
+                .getElementById(
+                    "remove-question-image"
+                );
+
+
+        if (
+            removeCheckbox?.checked &&
+            imagePath
+        ) {
+
+            const {
+                error: removeError
+            } =
+                await supabaseClient
+                    .storage
+                    .from("test-images")
+                    .remove([
+                        imagePath
+                    ]);
+
+
+            if (removeError) {
+
+                console.warn(
+                    "古い画像の削除に失敗:",
+                    removeError
+                );
+
+            }
+
+
+            imageUrl =
+                null;
+
+
+            imagePath =
+                null;
+
+        }
+
+
+        // ----------------------------------------------------
+        // 新しい画像
+        // ----------------------------------------------------
+
+        if (
+            fileInput &&
+            fileInput.files.length > 0
+        ) {
+
+            const file =
+                fileInput.files[0];
+
+
+            if (
+                file.size >
+                10 * 1024 * 1024
+            ) {
+
+                throw new Error(
+                    "画像は10MB以下にしてください。"
+                );
+
+            }
+
+
+            const allowedTypes = [
+
+                "image/png",
+                "image/jpeg",
+                "image/webp"
+
+            ];
+
+
+            if (
+                !allowedTypes.includes(
+                    file.type
+                )
+            ) {
+
+                throw new Error(
+                    "PNG、JPEG、WebPのみ使用できます。"
+                );
+
+            }
+
+
+            // 古い画像を削除
+            if (imagePath) {
+
+                await supabaseClient
+                    .storage
+                    .from("test-images")
+                    .remove([
+                        imagePath
+                    ]);
+
+            }
+
+
+            const extension =
+                file.name
+                    .split(".")
+                    .pop()
+                    .toLowerCase();
+
+
+            const newPath =
+                `questions/${questionId}-${Date.now()}.${extension}`;
+
+
+            const {
                 error: uploadError
             } =
                 await supabaseClient
                     .storage
                     .from("test-images")
                     .upload(
-                        filePath,
+                        newPath,
                         file,
                         {
+                            upsert: false,
                             contentType:
-                                file.type,
-
-                            cacheControl:
-                                "3600",
-
-                            upsert:
-                                false
+                                file.type
                         }
                     );
 
 
             if (uploadError) {
 
-                console.error(
-                    uploadError
-                );
+                throw uploadError;
 
-
-                await supabaseClient
-                    .from("questions")
-                    .delete()
-                    .eq(
-                        "id",
-                        newQuestion.id
-                    );
-
-
-                alert(
-                    "画像のアップロードに失敗したため、" +
-                    "小問の作成を取り消しました。\n\n" +
-                    uploadError.message
-                );
-
-                return;
             }
 
 
@@ -2264,7 +2951,7 @@ async function saveQuestion() {
                     .storage
                     .from("test-images")
                     .getPublicUrl(
-                        uploadData.path
+                        newPath
                     );
 
 
@@ -2273,342 +2960,88 @@ async function saveQuestion() {
 
 
             imagePath =
-                uploadData.path;
+                newPath;
+
+        }
 
 
-            const {
-                error: updateError
-            } =
-                await supabaseClient
-                    .from("questions")
-                    .update({
-                        image_url:
-                            imageUrl,
+        // ----------------------------------------------------
+        // 画像情報をDBへ
+        // ----------------------------------------------------
 
-                        image_path:
-                            imagePath
-                    })
-                    .eq(
-                        "id",
-                        newQuestion.id
-                    );
+        const {
+            error: imageUpdateError
+        } =
+            await supabaseClient
 
+                .from("questions")
 
-            if (updateError) {
+                .update({
 
-                console.error(
-                    updateError
-                );
+                    image_url:
+                        imageUrl,
 
-
-                await supabaseClient
-                    .storage
-                    .from("test-images")
-                    .remove([
+                    image_path:
                         imagePath
-                    ]);
 
+                })
 
-                await supabaseClient
-                    .from("questions")
-                    .delete()
-                    .eq(
-                        "id",
-                        newQuestion.id
-                    );
-
-
-                alert(
-                    "画像情報の保存に失敗しました。"
+                .eq(
+                    "id",
+                    questionId
                 );
 
-                return;
-            }
+
+        if (imageUpdateError) {
+
+            throw imageUpdateError;
 
         }
 
 
-        alert(
-            "小問を追加しました。"
-        );
+        result.textContent =
+            "保存しました。";
 
 
-        await loadAdminQuestions(
-            adminProblem
-        );
+        result.style.color =
+            "#277043";
 
 
-        return;
-    }
+        setTimeout(
+            () => {
 
-
-    // ========================================================
-    // 既存小問
-    // ========================================================
-
-    // 画像削除
-    if (
-        removeCurrentImage &&
-        imagePath
-    ) {
-
-        const {
-            error: deleteError
-        } =
-            await supabaseClient
-                .storage
-                .from("test-images")
-                .remove([
-                    imagePath
-                ]);
-
-
-        if (deleteError) {
-
-            console.error(
-                deleteError
-            );
-
-
-            alert(
-                "画像の削除に失敗しました。\n" +
-                deleteError.message
-            );
-
-            return;
-        }
-
-
-        imageUrl =
-            null;
-
-        imagePath =
-            null;
-
-    }
-
-
-    // ----------------------------------------
-    // 新画像
-    // ----------------------------------------
-
-    if (file) {
-
-        const extension =
-            getFileExtension(file);
-
-
-        const newFilePath =
-            `questions/${editingQuestion.id}-${Date.now()}.${extension}`;
-
-
-        const {
-            data: uploadData,
-            error: uploadError
-        } =
-            await supabaseClient
-                .storage
-                .from("test-images")
-                .upload(
-                    newFilePath,
-                    file,
-                    {
-                        contentType:
-                            file.type,
-
-                        cacheControl:
-                            "3600",
-
-                        upsert:
-                            false
-                    }
+                loadAdminQuestions(
+                    problemId
                 );
 
-
-        if (uploadError) {
-
-            console.error(
-                uploadError
-            );
-
-
-            alert(
-                "画像のアップロードに失敗しました。\n" +
-                uploadError.message
-            );
-
-            return;
-        }
-
-
-        const {
-            data: publicData
-        } =
-            supabaseClient
-                .storage
-                .from("test-images")
-                .getPublicUrl(
-                    uploadData.path
-                );
-
-
-        imageUrl =
-            publicData.publicUrl;
-
-
-        imagePath =
-            uploadData.path;
-
-
-        // 古い画像削除
-        if (
-            editingQuestion.image_path &&
-            editingQuestion.image_path !==
-            newFilePath
-        ) {
-
-            const {
-                error:
-                    oldDeleteError
-            } =
-                await supabaseClient
-                    .storage
-                    .from("test-images")
-                    .remove([
-                        editingQuestion.image_path
-                    ]);
-
-
-            if (oldDeleteError) {
-
-                console.warn(
-                    "古い画像を削除できませんでした。",
-                    oldDeleteError
-                );
-
-            }
-
-        }
-
-    }
-
-
-    // ----------------------------------------
-    // DB更新
-    // ----------------------------------------
-
-    const {
-        error
-    } =
-        await supabaseClient
-            .from("questions")
-            .update({
-                name,
-
-                problem,
-
-                answer,
-
-                explanation,
-
-                image_url:
-                    imageUrl,
-
-                image_path:
-                    imagePath,
-
-                updated_at:
-                    new Date().toISOString()
-            })
-            .eq(
-                "id",
-                editingQuestion.id
-            );
-
-
-    if (error) {
-
-        console.error(
-            error
+            },
+            600
         );
 
-        alert(
-            "小問の保存に失敗しました。\n" +
-            error.message
-        );
-
-        return;
     }
 
+    catch (error) {
 
-    alert(
-        "保存しました。"
-    );
-
-
-    editingQuestion =
-        null;
-
-    removeCurrentImage =
-        false;
+        console.error(error);
 
 
-    await loadAdminQuestions(
-        adminProblem
-    );
-
-}
+        result.textContent =
+            error.message ||
+            "保存できませんでした。";
 
 
-// ============================================================
-// 小問並び順
-// ============================================================
-
-async function getNextQuestionSortOrder() {
-
-    const {
-        data,
-        error
-    } =
-        await supabaseClient
-            .from("questions")
-            .select("sort_order")
-            .eq(
-                "problem_id",
-                adminProblem.id
-            )
-            .order(
-                "sort_order",
-                {
-                    ascending: false
-                }
-            )
-            .limit(1);
+        result.style.color =
+            "#b42318";
 
 
-    if (error) {
-
-        console.error(
-            error
-        );
-
-        return 1;
-    }
+        saveButton.disabled =
+            false;
 
 
-    if (
-        !data ||
-        data.length === 0
-    ) {
-
-        return 1;
+        saveButton.textContent =
+            "保存";
 
     }
-
-
-    return (
-        data[0].sort_order + 1
-    );
 
 }
 
@@ -2617,52 +3050,41 @@ async function getNextQuestionSortOrder() {
 // 小問削除
 // ============================================================
 
-async function deleteQuestion(question) {
+async function deleteQuestion(
+    question,
+    problemId
+) {
 
-    const ok =
-        confirm(
+    if (
+        !confirm(
             `「${question.name}」を削除しますか？`
-        );
+        )
+    ) {
 
-
-    if (!ok) {
         return;
+
     }
 
 
-    // 画像削除
     if (question.image_path) {
 
-        const {
-            error: imageError
-        } =
-            await supabaseClient
-                .storage
-                .from("test-images")
-                .remove([
-                    question.image_path
-                ]);
-
-
-        if (imageError) {
-
-            console.warn(
-                "画像削除エラー:",
-                imageError
-            );
-
-        }
+        await supabaseClient
+            .storage
+            .from("test-images")
+            .remove([
+                question.image_path
+            ]);
 
     }
 
 
-    // DB削除
-    const {
-        error
-    } =
+    const { error } =
         await supabaseClient
+
             .from("questions")
+
             .delete()
+
             .eq(
                 "id",
                 question.id
@@ -2672,193 +3094,432 @@ async function deleteQuestion(question) {
     if (error) {
 
         alert(
-            "小問の削除に失敗しました。\n" +
-            error.message
+            "削除できませんでした。"
         );
 
+        console.error(error);
+
         return;
+
     }
 
 
     loadAdminQuestions(
-        adminProblem
+        problemId
     );
 
 }
 
 
 // ============================================================
-// 編集画面終了
+// 管理者：ご要望一覧
 // ============================================================
 
-function closeQuestionEditor() {
+async function renderAdminRequests() {
 
-    editingQuestion =
-        null;
-
-    removeCurrentImage =
-        false;
-
-
-    adminQuestionEditor.classList.add(
-        "hidden"
-    );
+    const content =
+        document
+            .getElementById(
+                "admin-content"
+            );
 
 
-    adminQuestionScreen.classList.remove(
-        "hidden"
-    );
+    content.innerHTML = `
 
-}
+        <h2>
+            ご要望・訂正報告
+        </h2>
 
+        <div
+            id="admin-request-list"
+            class="admin-list">
 
-// ============================================================
-// 管理者リスト
-// ============================================================
+            読み込み中...
 
-function createAdminItem(
-    name,
-    buttons
-) {
+        </div>
 
-    const item =
-        document.createElement(
-            "div"
-        );
+    `;
 
 
-    item.className =
-        "admin-item";
+    const list =
+        document
+            .getElementById(
+                "admin-request-list"
+            );
 
 
-    const nameElement =
-        document.createElement(
-            "div"
-        );
+    const {
+        data,
+        error
+    } =
+        await supabaseClient
 
+            .from("requests")
 
-    nameElement.className =
-        "admin-item-name";
+            .select(`
 
+                id,
+                message,
+                status,
+                created_at,
 
-    nameElement.textContent =
-        name;
+                subjects(name),
 
+                problems(name),
 
-    const buttonArea =
-        document.createElement(
-            "div"
-        );
+                questions(name)
 
+            `)
 
-    buttonArea.className =
-        "admin-item-buttons";
-
-
-    buttons.forEach(
-        buttonInfo => {
-
-            const button =
-                document.createElement(
-                    "button"
-                );
-
-
-            button.textContent =
-                buttonInfo.text;
-
-
-            if (
-                buttonInfo.danger
-            ) {
-
-                button.classList.add(
-                    "danger-button"
-                );
-
-            }
-
-
-            button.addEventListener(
-                "click",
-                event => {
-
-                    event.stopPropagation();
-
-                    buttonInfo.action();
-
+            .order(
+                "created_at",
+                {
+                    ascending: false
                 }
             );
 
 
-            buttonArea.appendChild(
-                button
+    if (error) {
+
+        console.error(error);
+
+        list.innerHTML =
+            "<p class='error'>ご要望を読み込めませんでした。</p>";
+
+        return;
+
+    }
+
+
+    list.innerHTML = "";
+
+
+    if (
+        !data ||
+        data.length === 0
+    ) {
+
+        list.innerHTML =
+            "<p>ご要望はありません。</p>";
+
+        return;
+
+    }
+
+
+    data.forEach(request => {
+
+        const subjectName =
+            request.subjects?.name ||
+            "不明";
+
+
+        const problemName =
+            request.problems?.name ||
+            "不明";
+
+
+        const questionName =
+            request.questions?.name ||
+            "指定なし";
+
+
+        const date =
+            new Date(
+                request.created_at
+            )
+            .toLocaleString(
+                "ja-JP"
             );
 
+
+        const row =
+            document.createElement(
+                "div"
+            );
+
+
+        row.className =
+            "admin-row request-row";
+
+
+        row.innerHTML = `
+
+            <div
+                class="request-meta">
+
+                ${escapeHtml(subjectName)}
+                ＞
+                ${escapeHtml(problemName)}
+                ＞
+                ${escapeHtml(questionName)}
+
+                ／
+
+                ${escapeHtml(date)}
+
+            </div>
+
+
+            <div
+                class="${
+                    request.status === "未確認"
+                        ? "status-unread"
+                        : "status-read"
+                }">
+
+                ${escapeHtml(
+                    request.status
+                )}
+
+            </div>
+
+
+            <div
+                class="request-body">
+
+                ${escapeHtml(
+                    request.message
+                )}
+
+            </div>
+
+
+            <div
+                class="admin-row-actions">
+
+                ${
+                    request.status === "未確認"
+
+                    ?
+
+                    `
+                        <button
+                            class="secondary-button read-button">
+
+                            確認済みにする
+
+                        </button>
+                    `
+
+                    :
+
+                    `
+                        <button
+                            class="secondary-button unread-button">
+
+                            未確認に戻す
+
+                        </button>
+                    `
+                }
+
+
+                <button
+                    class="danger-button delete-request-button">
+
+                    削除
+
+                </button>
+
+            </div>
+
+        `;
+
+
+        if (
+            request.status ===
+            "未確認"
+        ) {
+
+            row
+                .querySelector(
+                    ".read-button"
+                )
+                .addEventListener(
+                    "click",
+                    () =>
+                        updateRequestStatus(
+                            request.id,
+                            "確認済み"
+                        )
+                );
+
         }
-    );
+
+        else {
+
+            row
+                .querySelector(
+                    ".unread-button"
+                )
+                .addEventListener(
+                    "click",
+                    () =>
+                        updateRequestStatus(
+                            request.id,
+                            "未確認"
+                        )
+                );
+
+        }
 
 
-    item.appendChild(
-        nameElement
-    );
+        row
+            .querySelector(
+                ".delete-request-button"
+            )
+            .addEventListener(
+                "click",
+                () =>
+                    deleteRequest(
+                        request.id
+                    )
+            );
 
 
-    item.appendChild(
-        buttonArea
-    );
+        list.appendChild(row);
 
-
-    return item;
+    });
 
 }
 
 
 // ============================================================
-// 拡張子
+// ご要望の状態変更
 // ============================================================
 
-function getFileExtension(file) {
+async function updateRequestStatus(
+    id,
+    status
+) {
 
-    const extension =
-        file.name
-            .split(".")
-            .pop()
-            .toLowerCase();
+    const { error } =
+        await supabaseClient
 
+            .from("requests")
 
-    if (
-        extension === "jpg" ||
-        extension === "jpeg" ||
-        extension === "png" ||
-        extension === "webp"
-    ) {
+            .update({
 
-        return extension;
+                status:
+                    status
 
-    }
+            })
 
-
-    if (
-        file.type ===
-        "image/png"
-    ) {
-
-        return "png";
-
-    }
+            .eq(
+                "id",
+                id
+            );
 
 
-    if (
-        file.type ===
-        "image/webp"
-    ) {
+    if (error) {
 
-        return "webp";
+        alert(
+            "状態を変更できませんでした。"
+        );
+
+        console.error(error);
+
+        return;
 
     }
 
 
-    return "jpg";
+    renderAdminRequests();
+
+}
+
+
+// ============================================================
+// ご要望削除
+// ============================================================
+
+async function deleteRequest(
+    id
+) {
+
+    if (
+        !confirm(
+            "このご要望を削除しますか？"
+        )
+    ) {
+
+        return;
+
+    }
+
+
+    const { error } =
+        await supabaseClient
+
+            .from("requests")
+
+            .delete()
+
+            .eq(
+                "id",
+                id
+            );
+
+
+    if (error) {
+
+        alert(
+            "削除できませんでした。"
+        );
+
+        console.error(error);
+
+        return;
+
+    }
+
+
+    renderAdminRequests();
+
+}
+
+
+// ============================================================
+// HTMLエスケープ
+// ============================================================
+
+function escapeHtml(value) {
+
+    return String(
+        value ?? ""
+    )
+
+        .replaceAll(
+            "&",
+            "&amp;"
+        )
+
+        .replaceAll(
+            "<",
+            "&lt;"
+        )
+
+        .replaceAll(
+            ">",
+            "&gt;"
+        )
+
+        .replaceAll(
+            '"',
+            "&quot;"
+        )
+
+        .replaceAll(
+            "'",
+            "&#039;"
+        );
+
+}
+
+
+function escapeAttribute(value) {
+
+    return escapeHtml(value);
 
 }
