@@ -9,7 +9,7 @@ const SUPABASE_URL = "https://yaxkvabopvindlbdzxpn.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_9TVmVas__w6DahDgshdEnw_hri2O_Ie";
 
 
-const INVITE_CODE = "1234";
+const INVITE_CODE = "634174";
 const BUCKET_NAME = "test-images";
 
 let db = null;
