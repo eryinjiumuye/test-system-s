@@ -2,112 +2,124 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>テスト解答共有システム</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js" defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>テスト回答共有システム</title>
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Supabaseを読み込む -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- アプリ本体は1回だけ読み込む -->
+  <script src="app.js" defer></script>
 </head>
 <body>
-<header class="topbar">
-    <a href="#" class="brand" id="home-button">テスト解答共有システム</a>
-    <button id="admin-button" class="secondary-button">管理者モード</button>
-</header>
+  <header class="topbar">
+    <button id="home-button" class="brand">テスト回答共有システム</button>
+    <button id="admin-button" class="secondary">管理者モード</button>
+  </header>
 
-<main>
-    <section id="entry-screen" class="screen active">
-        <div class="panel narrow">
-            <h1>入室</h1>
-            <p>招待コードを入力してください。</p>
-            <input id="invite-code" type="password" placeholder="招待コード">
-            <button id="enter-button" class="primary-button full">入室する</button>
-            <p id="entry-error" class="error"></p>
-        </div>
+  <main class="container">
+    <section id="entry-screen" class="screen">
+      <div class="panel">
+        <h1>入室</h1>
+        <p>招待コードを入力してください。</p>
+        <form id="entry-form">
+          <label for="invite-code">招待コード</label>
+          <input id="invite-code" type="password"
+                 autocomplete="off" required>
+          <button class="primary" type="submit">入室する</button>
+        </form>
+        <p id="entry-error" class="error" role="alert"></p>
+      </div>
     </section>
 
-    <section id="subject-screen" class="screen">
-        <div class="panel">
-            <h1>科目を選択</h1>
-            <div id="subject-list" class="choice-list"></div>
-        </div>
+    <section id="subject-screen" class="screen" hidden>
+      <h1>科目一覧</h1>
+      <p>科目を選択してください。</p>
+      <div id="subject-list" class="item-list"></div>
+      <p id="subject-error" class="error" role="alert"></p>
     </section>
 
-    <section id="problem-screen" class="screen">
-        <div class="panel">
-            <button id="problem-back" class="back-button">← 科目選択に戻る</button>
-            <h1 id="problem-title">大問を選択</h1>
-            <div id="problem-list" class="choice-list"></div>
-        </div>
+    <section id="problem-screen" class="screen" hidden>
+      <button id="problem-back" class="secondary">← 科目一覧</button>
+      <h1 id="problem-title">大問一覧</h1>
+      <div id="problem-list" class="item-list"></div>
     </section>
 
-    <section id="question-screen" class="screen">
-        <div class="panel">
-            <button id="question-back" class="back-button">← 大問選択に戻る</button>
-            <h1 id="question-title">小問を選択</h1>
-            <div id="question-list" class="choice-list"></div>
-        </div>
+    <section id="question-screen" class="screen" hidden>
+      <button id="question-back" class="secondary">← 大問一覧</button>
+      <h1 id="question-title">小問一覧</h1>
+      <div id="question-list" class="item-list"></div>
     </section>
 
-    <section id="answer-screen" class="screen">
-        <div class="panel">
-            <button id="answer-back" class="back-button">← 小問選択に戻る</button>
-            <p id="answer-breadcrumb" class="breadcrumb"></p>
-            <h1 id="answer-question-name">解答</h1>
-            <div id="answer-text" class="answer-box"></div>
-            <button id="request-button" class="secondary-button full">
-                この解答について訂正・要望を送る
-            </button>
-        </div>
+    <section id="answer-screen" class="screen" hidden>
+      <button id="answer-back" class="secondary">← 小問一覧</button>
+      <p id="answer-breadcrumb" class="breadcrumb"></p>
+      <div class="panel">
+        <h1 id="answer-question-name">解答</h1>
+        <div id="answer-text" class="answer-text"></div>
+      </div>
+      <button id="request-button" class="secondary">
+        ご要望・訂正を報告する
+      </button>
     </section>
 
-    <section id="request-screen" class="screen">
-        <div class="panel narrow">
-            <button id="request-cancel" class="back-button">← 解答に戻る</button>
-            <h1>訂正・要望を送信</h1>
-            <p id="request-breadcrumb" class="breadcrumb"></p>
-            <p>解答の誤りや修正してほしい点を入力してください。</p>
-            <textarea id="request-message" rows="7" maxlength="1000"
-                placeholder="例：解答が間違っていると思います。"></textarea>
-            <button id="request-submit" class="primary-button full">送信する</button>
-            <p id="request-result" class="result-message"></p>
-        </div>
+    <section id="request-screen" class="screen" hidden>
+      <button id="request-cancel" class="secondary">← 解答に戻る</button>
+      <div class="panel">
+        <h1>ご要望・訂正報告</h1>
+        <p id="request-breadcrumb" class="breadcrumb"></p>
+        <label for="request-message">報告内容</label>
+        <textarea id="request-message" rows="6" maxlength="1000"
+          placeholder="解答の間違い、改善案などを入力してください。"
+          required></textarea>
+        <button id="request-submit" class="primary">送信する</button>
+        <p id="request-result" role="status"></p>
+      </div>
     </section>
 
-    <section id="admin-login-screen" class="screen">
-        <div class="panel narrow">
-            <h1>管理者ログイン</h1>
-            <label for="admin-email">メールアドレス</label>
-            <input id="admin-email" type="email" autocomplete="username">
-            <label for="admin-password">パスワード</label>
-            <input id="admin-password" type="password" autocomplete="current-password">
-            <button id="admin-login-button" class="primary-button full">ログイン</button>
-            <button id="admin-login-back" class="back-button">戻る</button>
-            <p id="admin-login-error" class="error"></p>
-        </div>
+    <section id="admin-login-screen" class="screen" hidden>
+      <div class="panel">
+        <h1>管理者ログイン</h1>
+        <form id="admin-login-form">
+          <label for="admin-email">メールアドレス</label>
+          <input id="admin-email" type="email" autocomplete="username" required>
+
+          <label for="admin-password">パスワード</label>
+          <input id="admin-password" type="password"
+                 autocomplete="current-password" required>
+
+          <button class="primary" type="submit">ログイン</button>
+        </form>
+        <p id="admin-login-error" class="error" role="alert"></p>
+        <button id="admin-login-back" class="secondary">戻る</button>
+      </div>
     </section>
 
-    <section id="admin-screen" class="screen">
-        <div class="panel">
-            <div class="admin-heading">
-                <div>
-                    <h1>管理者モード</h1>
-                    <p class="muted">科目 → 大問 → 小問 → 解答編集</p>
-                </div>
-                <button id="admin-logout-button" class="secondary-button">ログアウト</button>
-            </div>
-
-            <nav class="admin-menu">
-                <button id="admin-subject-menu" class="secondary-button">科目管理</button>
-                <button id="admin-problem-menu" class="secondary-button">大問管理</button>
-                <button id="admin-question-menu" class="secondary-button">小問管理</button>
-                <button id="admin-request-menu" class="secondary-button">訂正・要望</button>
-            </nav>
-            <div id="admin-content"></div>
+    <section id="admin-screen" class="screen" hidden>
+      <div class="admin-heading">
+        <div>
+          <h1>管理者モード</h1>
+          <p id="admin-email-display"></p>
         </div>
-    </section>
-</main>
+        <button id="admin-logout-button" class="secondary">ログアウト</button>
+      </div>
 
-<footer>テスト解答共有システム</footer>
+      <nav class="admin-menu">
+        <button id="admin-subject-menu" class="secondary">科目管理</button>
+        <button id="admin-problem-menu" class="secondary">大問管理</button>
+        <button id="admin-question-menu" class="secondary">小問管理</button>
+        <button id="admin-request-menu" class="secondary">訂正報告一覧</button>
+      </nav>
+
+      <div id="admin-content" class="panel"></div>
+      <p id="admin-error" class="error" role="alert"></p>
+    </section>
+  </main>
+
+  <footer>
+    <p>テスト回答共有システム</p>
+  </footer>
 </body>
 </html>
