@@ -2,9 +2,6 @@ const SUPABASE_URL = "https://yaxkvabopvindlbdzxpn.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_9TVmVas__w6DahDgshdEnw_hri2O_Ie";
 
 
-const SUPABASE_URL = "https://yaxkvabopvindlbdzxpn.supabase.co";
-const SUPABASE_ANON_KEY = "ここに現在のPublishable keyまたはAnon key";
-
 const INVITE_CODE = "1234";
 const BUCKET_NAME = "test-images";
 
