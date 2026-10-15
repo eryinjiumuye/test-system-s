@@ -285,6 +285,7 @@ async function showQuestions(problem) {
 }
 
 
+
 async function showAnswer(questionId) {
   try {
     const { data, error } = await db
@@ -306,23 +307,61 @@ async function showAnswer(questionId) {
     $("answer-text").textContent =
       data.answer?.trim() || "まだ解答が登録されていません。";
 
-    // 画像表示用の要素を取得。なければ作成する
+    // 画像表示用の要素を取得する
     let image = $("answer-image");
 
     if (!image) {
       image = document.createElement("img");
       image.id = "answer-image";
       image.alt = "小問の画像";
+
+      image.style.display = "block";
       image.style.maxWidth = "100%";
       image.style.maxHeight = "500px";
+      image.style.width = "auto";
       image.style.height = "auto";
       image.style.objectFit = "contain";
-      image.style.display = "block";
       image.style.margin = "16px auto";
 
-      $("answer-text").insertAdjacentElement("afterend", image);
+      $("answer-text").insertAdjacentElement(
+        "afterend",
+        image
+      );
     }
 
+    // 前の画像の設定をリセットする
+    image.hidden = true;
+    image.removeAttribute("src");
+    image.onerror = null;
+
+    // データベースに画像URLがある場合だけ表示する
+    if (data.image_url && data.image_url.trim() !== "") {
+      image.onerror = () => {
+        image.hidden = true;
+        console.error(
+          "画像の読み込みに失敗しました:",
+          data.image_url
+        );
+      };
+
+      image.onload = () => {
+        image.hidden = false;
+      };
+
+      image.src = data.image_url;
+    }
+
+    showScreen("answer-screen");
+
+  } catch (error) {
+    console.error("解答読み込みエラー:", error);
+
+    alert(
+      "解答を読み込めませんでした。\n" +
+      errorMessage(error)
+    );
+  }
+}
     // 画像URLがある場合だけ表示する
     if (data.image_url) {
       image.src = data.image_url;
