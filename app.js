@@ -747,11 +747,24 @@ async function renderQuestionEditor(question) {
   removeImageLabel.append(removeImage, document.createTextNode("登録済み画像を削除する"));
   form.appendChild(removeImageLabel);
 
-  if (question.image_url) {
-    const imageInfo = document.createElement("p");
-    imageInfo.textContent = "現在、画像が登録されています。";
-    form.appendChild(imageInfo);
-  }
+  
+if (question.image_url) {
+  const imageInfo = document.createElement("p");
+  imageInfo.textContent = "現在、画像が登録されています。";
+  form.appendChild(imageInfo);
+
+  const image = document.createElement("img");
+  image.src = question.image_url;
+  image.alt = "登録済みの画像";
+  image.style.maxWidth = "100%";
+  image.style.maxHeight = "400px";
+  image.style.height = "auto";
+  image.style.objectFit = "contain";
+  image.style.display = "block";
+  image.style.margin = "10px 0";
+
+  form.appendChild(image);
+}
 
   const saveButton = makeButton("変更を保存", async () => {}, "primary");
   saveButton.type = "submit";
