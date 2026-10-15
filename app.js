@@ -11,7 +11,6 @@ const SUPABASE_ANON_KEY = "sb_publishable_9TVmVas__w6DahDgshdEnw_hri2O_Ie";
 
 const INVITE_CODE = "634174";
 const BUCKET_NAME = "test-images";
-
 let db = null;
 let currentSubject = null;
 let currentProblem = null;
@@ -285,27 +284,57 @@ async function showQuestions(problem) {
   }
 }
 
+
 async function showAnswer(questionId) {
   try {
     const { data, error } = await db
       .from("questions")
-      .select("id, name, answer")
+      .select("id, name, answer, image_url")
       .eq("id", questionId)
       .single();
 
     if (error) throw error;
 
     currentQuestion = data;
+
     $("answer-breadcrumb").textContent =
       `${currentSubject?.name || ""} / ` +
       `${currentProblem?.name || ""} / ${data.name}`;
 
     $("answer-question-name").textContent = data.name;
+
     $("answer-text").textContent =
       data.answer?.trim() || "まだ解答が登録されていません。";
 
+    // 画像表示用の要素を取得。なければ作成する
+    let image = $("answer-image");
+
+    if (!image) {
+      image = document.createElement("img");
+      image.id = "answer-image";
+      image.alt = "小問の画像";
+      image.style.maxWidth = "100%";
+      image.style.maxHeight = "500px";
+      image.style.height = "auto";
+      image.style.objectFit = "contain";
+      image.style.display = "block";
+      image.style.margin = "16px auto";
+
+      $("answer-text").insertAdjacentElement("afterend", image);
+    }
+
+    // 画像URLがある場合だけ表示する
+    if (data.image_url) {
+      image.src = data.image_url;
+      image.hidden = false;
+    } else {
+      image.removeAttribute("src");
+      image.hidden = true;
+    }
+
     showScreen("answer-screen");
   } catch (error) {
+    console.error("解答読み込みエラー:", error);
     alert("解答を読み込めませんでした。\n" + errorMessage(error));
   }
 }
@@ -748,7 +777,8 @@ async function renderQuestionEditor(question) {
   form.appendChild(removeImageLabel);
 
   
-if (question.image_url) {
+  
+  if (question.image_url) {
   const imageInfo = document.createElement("p");
   imageInfo.textContent = "現在、画像が登録されています。";
   form.appendChild(imageInfo);
@@ -764,7 +794,7 @@ if (question.image_url) {
   image.style.margin = "10px 0";
 
   form.appendChild(image);
-}
+ }
 
   const saveButton = makeButton("変更を保存", async () => {}, "primary");
   saveButton.type = "submit";
