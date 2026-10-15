@@ -362,21 +362,6 @@ async function showAnswer(questionId) {
     );
   }
 }
-    // 画像URLがある場合だけ表示する
-    if (data.image_url) {
-      image.src = data.image_url;
-      image.hidden = false;
-    } else {
-      image.removeAttribute("src");
-      image.hidden = true;
-    }
-
-    showScreen("answer-screen");
-  } catch (error) {
-    console.error("解答読み込みエラー:", error);
-    alert("解答を読み込めませんでした。\n" + errorMessage(error));
-  }
-}
 
 // ========================================
 // 4. 訂正報告
